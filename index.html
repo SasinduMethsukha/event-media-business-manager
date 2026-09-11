@@ -1442,7 +1442,14 @@ function rgba(hex,a) {
   return 'rgba('+r+','+g+','+b+','+a+')';
 }
 function itemTotal(it) {
-  return it.manualTotal ? (parseFloat(it.total)||0) : (it.qty||1)*(it.unit||0);
+  if (it.manualTotal) return parseFloat(it.total)||0;
+  var qty = parseFloat(it.qty);
+  var unit = parseFloat(it.unit);
+  var days = it.multiDay ? parseFloat(it.days) : 1;
+  if (!isFinite(qty)) qty = 1;
+  if (!isFinite(unit)) unit = 0;
+  if (!isFinite(days) || days < 1) days = 1;
+  return qty * unit * days;
 }
 
 // ── THEME / PANES / ACCENT ──
@@ -1633,8 +1640,8 @@ function addCategory(data) {
     discEnabled: false, discMode: 'pct', discVal: 0, discLabel: 'Discount',
     budgetEnabled: false, budgetVal: 0, budgetLabel: 'Category Budget',
     items: data
-      ? data.items.map(function(it){ return {desc:it[0],tag:it[1],qty:it[2]||1,unit:it[3]||0,showDesc:true,showTag:true,showQty:true,showUnit:true,showTotal:true,manualTotal:false,total:0}; })
-      : [{desc:'',tag:'General',qty:1,unit:0,showDesc:true,showTag:true,showQty:true,showUnit:true,showTotal:true,manualTotal:false,total:0}]
+      ? data.items.map(function(it){ return {desc:it[0],tag:it[1],qty:it[2]||1,unit:it[3]||0,days:1,multiDay:false,showDesc:true,showTag:true,showQty:true,showUnit:true,showTotal:true,manualTotal:false,total:0}; })
+      : [{desc:'',tag:'General',qty:1,unit:0,days:1,multiDay:false,showDesc:true,showTag:true,showQty:true,showUnit:true,showTotal:true,manualTotal:false,total:0}]
   });
   renderCats();
   render();
@@ -1642,7 +1649,7 @@ function addCategory(data) {
 function removeCategory(id) { cats = cats.filter(function(c){ return c.id!==id; }); renderCats(); render(); }
 function addItem(cId) {
   var c = cats.find(function(x){ return x.id===cId; });
-  if (c) c.items.push({desc:'',tag:'General',qty:1,unit:0,showDesc:true,showTag:true,showUnit:true,showQty:true,showTotal:true,manualTotal:false,total:0});
+  if (c) c.items.push({desc:'',tag:'General',qty:1,unit:0,days:1,multiDay:false,showDesc:true,showTag:true,showUnit:true,showQty:true,showTotal:true,manualTotal:false,total:0});
   renderCats(); render();
 }
 function removeItem(cId, idx) {
@@ -1686,16 +1693,28 @@ function toggleCatBudget(id) {
 function updateItem(cId, idx, field, val) {
   var c = cats.find(function(x){ return x.id===cId; });
   if (c && c.items[idx]) {
-    c.items[idx][field] = (field==='qty'||field==='unit'||field==='total') ? (parseFloat(val)||0) : val;
+    c.items[idx][field] = (field==='qty'||field==='unit'||field==='total'||field==='days') ? (parseFloat(val)||0) : val;
+    if (field === 'days' && c.items[idx].days < 1) c.items[idx].days = 1;
   }
+  renderCats();
+  render();
+}
+function toggleMultiDay(cId, idx) {
+  var c = cats.find(function(x){ return x.id===cId; });
+  if (!c || !c.items[idx]) return;
+  var it = c.items[idx];
+  it.multiDay = !it.multiDay;
+  if (!it.days || it.days < 1) it.days = 1;
+  renderCats();
   render();
 }
 function toggleManualTotal(cId, idx) {
   var c = cats.find(function(x){ return x.id===cId; });
   if (!c || !c.items[idx]) return;
   var it = c.items[idx];
+  var autoTotal = itemTotal({qty:it.qty,unit:it.unit,days:it.days,multiDay:it.multiDay,manualTotal:false});
   it.manualTotal = !it.manualTotal;
-  if (it.manualTotal) it.total = itemTotal({qty:it.qty,unit:it.unit,manualTotal:false});
+  if (it.manualTotal) it.total = autoTotal;
   renderCats(); render();
 }
 function updateColLabel(field, val) {
@@ -1723,6 +1742,8 @@ function renderCats() {
       var unitOn = it.showUnit !== false;
       var qtyOn = it.showQty !== false;
       var manualOn = !!it.manualTotal;
+      var multiDayOn = !!it.multiDay;
+      var days = (parseFloat(it.days)||1);
       var totalOn = it.showTotal !== false;
       rows += '<tr class="item-row">' +
         '<td><div style="display:flex;align-items:center;gap:3px">' +
@@ -1747,9 +1768,11 @@ function renderCats() {
             : '<span style="flex:1;text-align:right;font-size:12px;color:var(--text2)">' + lineTotal + '</span>') +
           '<button class="btn-icon" style="padding:3px;color:' + (totalOn?'var(--accent)':'var(--text2)') + '" title="' + (totalOn?'Amount shown on invoice — click to hide (e.g. lump-sum category budgets)':'Amount hidden on invoice — click to show') + '" onclick="toggleItemVis(' + c.id + ',' + ii + ',\'showTotal\')"><i class="ti ti-' + (totalOn?'eye':'eye-off') + '" style="font-size:13px"></i></button>' +
           '<button class="btn-icon" style="padding:3px;color:' + (manualOn?'var(--accent)':'var(--text2)') + '" title="' + (manualOn?'Total is manually set — click to auto-calculate again':'Total auto-calculated — click to edit manually') + '" onclick="toggleManualTotal(' + c.id + ',' + ii + ')"><i class="ti ti-' + (manualOn?'lock':'pencil') + '" style="font-size:12px"></i></button>' +
+          '<button class="btn-icon" style="padding:3px;color:' + (multiDayOn?'var(--accent)':'var(--text2)') + '" title="' + (multiDayOn?'Multi-day pricing ON — click to use normal one-day pricing':'Enable multi-day pricing for this item') + '" onclick="toggleMultiDay(' + c.id + ',' + ii + ')"><i class="ti ti-calendar-time" style="font-size:13px"></i></button>' +
         '</div></td>' +
         '<td style="text-align:center"><button class="btn-icon" onclick="removeItem(' + c.id + ',' + ii + ')"><i class="ti ti-x" style="font-size:12px"></i></button></td>' +
-        '</tr>';
+        '</tr>' +
+        (multiDayOn ? '<tr><td colspan="6" style="padding:6px 10px 8px;background:var(--surface2);border-bottom:1px solid var(--border)"><div style="display:flex;align-items:center;gap:8px;justify-content:flex-end;flex-wrap:wrap;font-size:11.5px;color:var(--text2)"><i class="ti ti-calendar-time" style="color:var(--accent)"></i><strong style="color:var(--text)">Multi-day pricing</strong><span>Days</span><input type="number" min="1" step="1" value="' + days + '" oninput="updateItem(' + c.id + ',' + ii + ',\'days\',this.value)" style="width:70px;padding:4px 7px;border:1px solid var(--border2);border-radius:6px;background:var(--surface);color:var(--text);text-align:right"><span>' + (it.qty||1) + ' × ' + sym + ' ' + Number(it.unit||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' × ' + days + ' day' + (days==1?'':'s') + ' = <strong style="color:var(--text)">' + lineTotal + '</strong></span></div></td></tr>' : '');
     }
     var discBtnColor = c.discEnabled ? '#16a34a' : 'var(--text2)';
     var discBtnIcon = c.discEnabled ? 'ti-discount-check' : 'ti-discount';
@@ -1895,10 +1918,11 @@ function render() {
       var qtyOn = it.showQty !== false;
       var totalOn = it.showTotal !== false;
       var tagChip = tagOn ? ('<span class="item-tag" style="background:' + rgba(c.color,0.1) + ';color:' + esc(c.color) + '">' + esc(it.tag) + '</span>') : '';
+      var dayNote = it.multiDay ? '<span style="display:block;font-size:9.5px;color:#999;margin-top:2px">' + (parseFloat(it.days)||1) + ' day' + ((parseFloat(it.days)||1)===1?'':'s') + '</span>' : '';
       var descSpan = descOn
-        ? '<span>' + esc(it.desc||'—') + tagChip + '</span>'
-        : '<span>' + tagChip + '</span>';
-      var unitSpan = showUnitCol ? ('<span>' + (unitOn ? fmt(it.unit) : '') + '</span>') : '';
+        ? '<span>' + esc(it.desc||'—') + tagChip + dayNote + '</span>'
+        : '<span>' + tagChip + dayNote + '</span>';
+      var unitSpan = showUnitCol ? ('<span>' + (unitOn ? (fmt(it.unit) + (it.multiDay ? '<span style="display:block;font-size:9px;color:#aaa">/ day</span>' : '')) : '') + '</span>') : '';
       itemRows += '<div class="doc-item" style="grid-template-columns:' + gridCols + '">' +
         descSpan +
         '<span>' + (qtyOn ? it.qty : '') + '</span>' +
