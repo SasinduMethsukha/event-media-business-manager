@@ -1443,13 +1443,18 @@ function rgba(hex,a) {
 }
 function itemTotal(it) {
   if (it.manualTotal) return parseFloat(it.total)||0;
+
+  // Multi-day items use a manually entered total price.
+  if (it.multiDay) {
+    var multiDayPrice = parseFloat(it.multiDayPrice);
+    return isFinite(multiDayPrice) ? multiDayPrice : 0;
+  }
+
   var qty = parseFloat(it.qty);
   var unit = parseFloat(it.unit);
-  var days = it.multiDay ? parseFloat(it.days) : 1;
   if (!isFinite(qty)) qty = 1;
   if (!isFinite(unit)) unit = 0;
-  if (!isFinite(days) || days < 1) days = 1;
-  return qty * unit * days;
+  return qty * unit;
 }
 
 // ── THEME / PANES / ACCENT ──
@@ -1695,7 +1700,7 @@ function updateItem(cId, idx, field, val) {
   if (!c || !c.items[idx]) return;
 
   var it = c.items[idx];
-  it[field] = (field==='qty'||field==='unit'||field==='total'||field==='days')
+  it[field] = (field==='qty'||field==='unit'||field==='total'||field==='days'||field==='multiDayPrice')
     ? (parseFloat(val)||0)
     : val;
 
@@ -1722,18 +1727,13 @@ function updateItem(cId, idx, field, val) {
 
   var multiRow = document.querySelector('tr.multi-day-row[data-cid="' + cId + '"][data-idx="' + idx + '"]');
   if (multiRow) {
-    var summary = multiRow.querySelector('.multi-day-summary');
-    if (summary) {
-      var effectiveDays = parseFloat(it.days);
-      if (!isFinite(effectiveDays) || effectiveDays < 1) effectiveDays = 1;
+    var priceDisplay = multiRow.querySelector('.multi-day-price-display');
+    if (priceDisplay) {
       var sym = (gv('currency')||'Rs. ').trim();
-      summary.innerHTML =
-        (it.qty||1) + ' × ' + sym + ' ' +
-        Number(it.unit||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}) +
-        ' × ' + effectiveDays + ' day' + (effectiveDays===1?'':'s') +
-        ' = <strong style="color:var(--text)">' +
-        itemTotal(it).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}) +
-        '</strong>';
+      priceDisplay.textContent = sym + ' ' + itemTotal(it).toLocaleString('en-US',{
+        minimumFractionDigits:2,
+        maximumFractionDigits:2
+      });
     }
   }
 
@@ -1746,6 +1746,9 @@ function toggleMultiDay(cId, idx) {
   var it = c.items[idx];
   it.multiDay = !it.multiDay;
   if (!it.days || it.days < 1) it.days = 1;
+  if (it.multiDay && (!isFinite(parseFloat(it.multiDayPrice)) || parseFloat(it.multiDayPrice) < 0)) {
+    it.multiDayPrice = 0;
+  }
   renderCats();
   render();
 }
@@ -1753,7 +1756,7 @@ function toggleManualTotal(cId, idx) {
   var c = cats.find(function(x){ return x.id===cId; });
   if (!c || !c.items[idx]) return;
   var it = c.items[idx];
-  var autoTotal = itemTotal({qty:it.qty,unit:it.unit,days:it.days,multiDay:it.multiDay,manualTotal:false});
+  var autoTotal = itemTotal({qty:it.qty,unit:it.unit,days:it.days,multiDay:it.multiDay,multiDayPrice:it.multiDayPrice,manualTotal:false});
   it.manualTotal = !it.manualTotal;
   if (it.manualTotal) it.total = autoTotal;
   renderCats(); render();
@@ -1813,7 +1816,7 @@ function renderCats() {
         '</div></td>' +
         '<td style="text-align:center"><button class="btn-icon" onclick="removeItem(' + c.id + ',' + ii + ')"><i class="ti ti-x" style="font-size:12px"></i></button></td>' +
         '</tr>' +
-        (multiDayOn ? '<tr class="multi-day-row" data-cid="' + c.id + '" data-idx="' + ii + '"><td colspan="6" style="padding:6px 10px 8px;background:var(--surface2);border-bottom:1px solid var(--border)"><div style="display:flex;align-items:center;gap:8px;justify-content:flex-end;flex-wrap:wrap;font-size:11.5px;color:var(--text2)"><i class="ti ti-calendar-time" style="color:var(--accent)"></i><strong style="color:var(--text)">Multi-day pricing</strong><span>Days</span><input type="number" min="1" step="1" value="' + days + '" oninput="updateItem(' + c.id + ',' + ii + ',\'days\',this.value)" style="width:70px;padding:4px 7px;border:1px solid var(--border2);border-radius:6px;background:var(--surface);color:var(--text);text-align:right"><span class="multi-day-summary">' + (it.qty||1) + ' × ' + sym + ' ' + Number(it.unit||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' × ' + days + ' day' + (days==1?'':'s') + ' = <strong style="color:var(--text)">' + lineTotal + '</strong></span></div></td></tr>' : '');
+        (multiDayOn ? '<tr class="multi-day-row" data-cid="' + c.id + '" data-idx="' + ii + '"><td colspan="6" style="padding:8px 10px;background:var(--surface2);border-bottom:1px solid var(--border)"><div style="display:flex;align-items:center;gap:8px;justify-content:flex-end;flex-wrap:wrap;font-size:11.5px;color:var(--text2)"><i class="ti ti-calendar-time" style="color:var(--accent)"></i><strong style="color:var(--text)">Multi-day</strong><span>Days</span><input type="number" min="1" step="1" value="' + days + '" oninput="updateItem(' + c.id + ',' + ii + ',\'days\',this.value)" style="width:65px;padding:4px 7px;border:1px solid var(--border2);border-radius:6px;background:var(--surface);color:var(--text);text-align:right"><span>Manual total</span><div style="display:flex;align-items:center;gap:4px"><span style="font-weight:600">' + sym + '</span><input type="number" min="0" step="0.01" value="' + (parseFloat(it.multiDayPrice)||0) + '" oninput="updateItem(' + c.id + ',' + ii + ',\'multiDayPrice\',this.value)" style="width:120px;padding:4px 7px;border:1px solid var(--border2);border-radius:6px;background:var(--surface);color:var(--text);text-align:right"></div><span class="multi-day-price-display" style="font-weight:700;color:var(--text);display:none">' + sym + ' ' + lineTotal + '</span></div></td></tr>' : '');
     }
     var discBtnColor = c.discEnabled ? '#16a34a' : 'var(--text2)';
     var discBtnIcon = c.discEnabled ? 'ti-discount-check' : 'ti-discount';
