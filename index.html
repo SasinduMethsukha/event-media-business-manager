@@ -236,6 +236,14 @@ input:checked+.slider:before{transform:translateX(16px)}
 .doc-minimal .doc-signatures{padding:1.6rem 2.4rem 2.4rem}
 .doc-minimal .sig-line{background:#ddd}
 
+
+/* CATEGORY NOTE / DESCRIPTION */
+.cat-note-editor{padding:7px 10px;border-bottom:1px solid var(--border);background:var(--surface)}
+.cat-note-editor textarea{width:100%;min-height:38px;max-height:120px;resize:vertical;padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);font-size:11.5px;line-height:1.45}
+.cat-note-editor textarea:focus{border-color:var(--accent);outline:none;box-shadow:0 0 0 2px var(--accent-light)}
+.cat-note-preview{font-size:10.5px;color:#777;line-height:1.55;padding:0 10px 7px;margin-top:-1px;white-space:normal}
+.doc-minimal .cat-note-preview{padding:0 0 .75rem;color:#999;font-size:10.5px}
+
 /* ── RESPONSIVE / MOBILE ── */
 @media (max-width: 968px){
   .main{display:block;min-height:0}
@@ -1644,6 +1652,7 @@ function addCategory(data) {
     color: color,
     discEnabled: false, discMode: 'pct', discVal: 0, discLabel: 'Discount',
     budgetEnabled: false, budgetVal: 0, budgetLabel: 'Category Budget',
+    note: data && data.note ? data.note : '',
     items: data
       ? data.items.map(function(it){ return {desc:it[0],tag:it[1],qty:it[2]||1,unit:it[3]||0,days:1,multiDay:false,showDesc:true,showTag:true,showQty:true,showUnit:true,showTotal:true,manualTotal:false,total:0}; })
       : [{desc:'',tag:'General',qty:1,unit:0,days:1,multiDay:false,showDesc:true,showTag:true,showQty:true,showUnit:true,showTotal:true,manualTotal:false,total:0}]
@@ -1652,6 +1661,15 @@ function addCategory(data) {
   render();
 }
 function removeCategory(id) { cats = cats.filter(function(c){ return c.id!==id; }); renderCats(); render(); }
+
+function updateCategoryNote(id, val) {
+  var c = cats.find(function(x){ return x.id===id; });
+  if (!c) return;
+  c.note = val;
+  // Only refresh the quotation/invoice preview.
+  // Do not call renderCats() here, otherwise the textarea loses focus while typing.
+  render();
+}
 function addItem(cId) {
   var c = cats.find(function(x){ return x.id===cId; });
   if (c) c.items.push({desc:'',tag:'General',qty:1,unit:0,days:1,multiDay:false,showDesc:true,showTag:true,showUnit:true,showQty:true,showTotal:true,manualTotal:false,total:0});
@@ -1837,6 +1855,9 @@ function renderCats() {
         '<input class="cat-name-input" value="' + esc(c.name) + '" oninput="updateCatField(' + c.id + ',\'name\',this.value)" placeholder="Category name">' +
         '<button class="btn-icon" onclick="removeCategory(' + c.id + ')"><i class="ti ti-trash"></i></button>' +
       '</div>' +
+      '<div class="cat-note-editor">' +
+        '<textarea placeholder="Category note / description (optional)" oninput="updateCategoryNote(' + c.id + ',this.value)">' + esc(c.note||'') + '</textarea>' +
+      '</div>' +
       '<table class="item-table"><thead><tr>' +
         '<th><input value="' + esc(colLabels.desc) + '" oninput="updateColLabel(\'desc\',this.value)" style="width:100%;border:none;background:transparent;font:inherit;font-weight:600;font-size:10.5px;color:var(--text2);text-transform:uppercase;padding:1px 2px"></th>' +
         '<th><input value="' + esc(colLabels.tag) + '" oninput="updateColLabel(\'tag\',this.value)" style="width:100%;border:none;background:transparent;font:inherit;font-weight:600;font-size:10.5px;color:var(--text2);text-transform:uppercase;padding:1px 2px"></th>' +
@@ -1884,7 +1905,7 @@ function calcTotals() {
     }
     var budgetVal = parseFloat(c.budgetVal)||0;
     var sub = c.budgetEnabled ? budgetVal : (rawSub - catDisc);
-    return {name:c.name, color:c.color, rawSub:rawSub, catDisc:catDisc, catDiscLabel:catDiscLabel, sub:sub, items:c.items, discEnabled:c.discEnabled && !c.budgetEnabled, budgetEnabled:c.budgetEnabled, budgetVal:budgetVal, budgetLabel:c.budgetLabel};
+    return {name:c.name, color:c.color, note:c.note||'', rawSub:rawSub, catDisc:catDisc, catDiscLabel:catDiscLabel, sub:sub, items:c.items, discEnabled:c.discEnabled && !c.budgetEnabled, budgetEnabled:c.budgetEnabled, budgetVal:budgetVal, budgetLabel:c.budgetLabel};
   });
 
   var subtotal = catData.reduce(function(a,c){ return a+c.sub; }, 0);
@@ -1999,6 +2020,7 @@ function render() {
       '<div class="cat-heading" style="background:' + bg + ';color:' + esc(c.color) + '">' +
         '<span>' + esc(c.name) + '</span>' + (showCatHeadingTotal ? '<span>' + fmt(headingAmt) + '</span>' : '') +
       '</div>' +
+      (c.note ? '<div class="cat-note-preview">' + esc(c.note).replace(/\n/g,'<br>') + '</div>' : '') +
       '<div class="items-head" style="grid-template-columns:' + gridCols + '">' + headSpans + '</div>' +
       itemRows + discLine +
       subtotalLine +
