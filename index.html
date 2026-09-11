@@ -1692,11 +1692,52 @@ function toggleCatBudget(id) {
 }
 function updateItem(cId, idx, field, val) {
   var c = cats.find(function(x){ return x.id===cId; });
-  if (c && c.items[idx]) {
-    c.items[idx][field] = (field==='qty'||field==='unit'||field==='total'||field==='days') ? (parseFloat(val)||0) : val;
-    if (field === 'days' && c.items[idx].days < 1) c.items[idx].days = 1;
+  if (!c || !c.items[idx]) return;
+
+  var it = c.items[idx];
+  it[field] = (field==='qty'||field==='unit'||field==='total'||field==='days')
+    ? (parseFloat(val)||0)
+    : val;
+
+  // IMPORTANT: do not call renderCats() while the user is typing.
+  // Rebuilding #categories on every keystroke replaces the active input
+  // and makes the field lose focus after each character.
+  var row = document.querySelector('tr.item-row[data-cid="' + cId + '"][data-idx="' + idx + '"]');
+  if (row) {
+    var totalEl = row.querySelector('.item-line-total');
+    if (totalEl && !it.manualTotal) {
+      totalEl.textContent = itemTotal(it).toLocaleString('en-US',{
+        minimumFractionDigits:2,
+        maximumFractionDigits:2
+      });
+    }
+
+    var daysBtn = row.querySelector('.multi-day-toggle');
+    if (daysBtn && it.multiDay) {
+      var effectiveDays = parseFloat(it.days);
+      if (!isFinite(effectiveDays) || effectiveDays < 1) effectiveDays = 1;
+      daysBtn.innerHTML = '<i class="ti ti-calendar-time" style="font-size:12px"></i> ' + effectiveDays + ' day' + (effectiveDays===1?'':'s');
+    }
   }
-  renderCats();
+
+  var multiRow = document.querySelector('tr.multi-day-row[data-cid="' + cId + '"][data-idx="' + idx + '"]');
+  if (multiRow) {
+    var summary = multiRow.querySelector('.multi-day-summary');
+    if (summary) {
+      var effectiveDays = parseFloat(it.days);
+      if (!isFinite(effectiveDays) || effectiveDays < 1) effectiveDays = 1;
+      var sym = (gv('currency')||'Rs. ').trim();
+      summary.innerHTML =
+        (it.qty||1) + ' × ' + sym + ' ' +
+        Number(it.unit||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}) +
+        ' × ' + effectiveDays + ' day' + (effectiveDays===1?'':'s') +
+        ' = <strong style="color:var(--text)">' +
+        itemTotal(it).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}) +
+        '</strong>';
+    }
+  }
+
+  // Only the document preview/totals are re-rendered.
   render();
 }
 function toggleMultiDay(cId, idx) {
@@ -1745,7 +1786,7 @@ function renderCats() {
       var multiDayOn = !!it.multiDay;
       var days = (parseFloat(it.days)||1);
       var totalOn = it.showTotal !== false;
-      rows += '<tr class="item-row">' +
+      rows += '<tr class="item-row" data-cid="' + c.id + '" data-idx="' + ii + '">' +
         '<td><div style="display:flex;align-items:center;gap:3px">' +
           '<input style="flex:1" value="' + esc(it.desc) + '" placeholder="Description" oninput="updateItem(' + c.id + ',' + ii + ',\'desc\',this.value)">' +
           '<button class="btn-icon" style="padding:3px;color:' + (descOn?'var(--accent)':'var(--text2)') + '" title="' + (descOn?'Description shown on invoice — click to hide':'Description hidden on invoice — click to show') + '" onclick="toggleItemVis(' + c.id + ',' + ii + ',\'showDesc\')"><i class="ti ti-' + (descOn?'eye':'eye-off') + '" style="font-size:13px"></i></button>' +
@@ -1765,14 +1806,14 @@ function renderCats() {
         '<td><div style="display:flex;align-items:center;gap:3px">' +
           (manualOn
             ? '<input style="flex:1;text-align:right;color:var(--accent);font-weight:600" type="number" value="' + (it.total||0) + '" min="0" step="0.01" oninput="updateItem(' + c.id + ',' + ii + ',\'total\',this.value)">'
-            : '<span style="flex:1;text-align:right;font-size:12px;color:var(--text2)">' + lineTotal + '</span>') +
+            : '<span class="item-line-total" style="flex:1;text-align:right;font-size:12px;color:var(--text2)">' + lineTotal + '</span>') +
           '<button class="btn-icon" style="padding:3px;color:' + (totalOn?'var(--accent)':'var(--text2)') + '" title="' + (totalOn?'Amount shown on invoice — click to hide (e.g. lump-sum category budgets)':'Amount hidden on invoice — click to show') + '" onclick="toggleItemVis(' + c.id + ',' + ii + ',\'showTotal\')"><i class="ti ti-' + (totalOn?'eye':'eye-off') + '" style="font-size:13px"></i></button>' +
           '<button class="btn-icon" style="padding:3px;color:' + (manualOn?'var(--accent)':'var(--text2)') + '" title="' + (manualOn?'Total is manually set — click to auto-calculate again':'Total auto-calculated — click to edit manually') + '" onclick="toggleManualTotal(' + c.id + ',' + ii + ')"><i class="ti ti-' + (manualOn?'lock':'pencil') + '" style="font-size:12px"></i></button>' +
-          '<button class="btn-icon" style="padding:3px;color:' + (multiDayOn?'var(--accent)':'var(--text2)') + '" title="' + (multiDayOn?'Multi-day pricing ON — click to use normal one-day pricing':'Enable multi-day pricing for this item') + '" onclick="toggleMultiDay(' + c.id + ',' + ii + ')"><i class="ti ti-calendar-time" style="font-size:13px"></i></button>' +
+          '<button class="btn btn-sm multi-day-toggle" style="padding:3px 6px;font-size:10px;line-height:1.2;color:' + (multiDayOn?'var(--accent)':'var(--text2)') + ';border-color:' + (multiDayOn?'var(--accent)':'var(--border2)') + '" title="' + (multiDayOn?'Multi-day pricing ON — click to use normal one-day pricing':'Enable multi-day pricing for this item') + '" onclick="toggleMultiDay(' + c.id + ',' + ii + ')"><i class="ti ti-calendar-time" style="font-size:12px"></i> ' + (multiDayOn ? (days + ' day' + (days==1?'':'s')) : '+ Days') + '</button>' +
         '</div></td>' +
         '<td style="text-align:center"><button class="btn-icon" onclick="removeItem(' + c.id + ',' + ii + ')"><i class="ti ti-x" style="font-size:12px"></i></button></td>' +
         '</tr>' +
-        (multiDayOn ? '<tr><td colspan="6" style="padding:6px 10px 8px;background:var(--surface2);border-bottom:1px solid var(--border)"><div style="display:flex;align-items:center;gap:8px;justify-content:flex-end;flex-wrap:wrap;font-size:11.5px;color:var(--text2)"><i class="ti ti-calendar-time" style="color:var(--accent)"></i><strong style="color:var(--text)">Multi-day pricing</strong><span>Days</span><input type="number" min="1" step="1" value="' + days + '" oninput="updateItem(' + c.id + ',' + ii + ',\'days\',this.value)" style="width:70px;padding:4px 7px;border:1px solid var(--border2);border-radius:6px;background:var(--surface);color:var(--text);text-align:right"><span>' + (it.qty||1) + ' × ' + sym + ' ' + Number(it.unit||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' × ' + days + ' day' + (days==1?'':'s') + ' = <strong style="color:var(--text)">' + lineTotal + '</strong></span></div></td></tr>' : '');
+        (multiDayOn ? '<tr class="multi-day-row" data-cid="' + c.id + '" data-idx="' + ii + '"><td colspan="6" style="padding:6px 10px 8px;background:var(--surface2);border-bottom:1px solid var(--border)"><div style="display:flex;align-items:center;gap:8px;justify-content:flex-end;flex-wrap:wrap;font-size:11.5px;color:var(--text2)"><i class="ti ti-calendar-time" style="color:var(--accent)"></i><strong style="color:var(--text)">Multi-day pricing</strong><span>Days</span><input type="number" min="1" step="1" value="' + days + '" oninput="updateItem(' + c.id + ',' + ii + ',\'days\',this.value)" style="width:70px;padding:4px 7px;border:1px solid var(--border2);border-radius:6px;background:var(--surface);color:var(--text);text-align:right"><span class="multi-day-summary">' + (it.qty||1) + ' × ' + sym + ' ' + Number(it.unit||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' × ' + days + ' day' + (days==1?'':'s') + ' = <strong style="color:var(--text)">' + lineTotal + '</strong></span></div></td></tr>' : '');
     }
     var discBtnColor = c.discEnabled ? '#16a34a' : 'var(--text2)';
     var discBtnIcon = c.discEnabled ? 'ti-discount-check' : 'ti-discount';
