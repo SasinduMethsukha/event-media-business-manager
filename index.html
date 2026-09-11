@@ -144,7 +144,20 @@ input:checked+.slider:before{transform:translateX(16px)}
 .doc-page{background:#fff;border-radius:14px;box-shadow:var(--shadow-lg);overflow:hidden;position:relative}
 .doc-page-number{padding:6px 1.8rem;font-size:9.5px;color:#ccc;text-align:right}
 .doc-accent-bar{height:6px}
-.doc-event-banner{padding:7px 1.8rem;font-size:13px;font-weight:700;text-align:center;border-bottom:1px solid #eee}
+.doc-event-banner{
+  padding:6px 1.8rem;
+  font-size:9.5px;
+  font-weight:500;
+  text-align:left;
+  border-bottom:1px solid #eee;
+  line-height:1.45;
+  letter-spacing:.01em;
+  white-space:normal;
+}
+.doc-event-banner .event-detail-name{font-weight:600}
+.doc-event-banner .event-detail-sep{margin:0 7px;color:#bbb}
+.doc-event-banner .event-detail-dates{font-weight:500}
+.doc-event-banner .event-detail-location{font-weight:500}
 .doc-header-wrap{padding:1.5rem 1.8rem 1.1rem;display:flex;align-items:flex-start;justify-content:space-between;gap:1.5rem}
 .doc-company-name{font-size:16px;font-weight:800;letter-spacing:-.3px;margin-bottom:1px}
 .doc-company-sub{font-size:11px;color:#666;margin-bottom:2px}
@@ -215,7 +228,16 @@ input:checked+.slider:before{transform:translateX(16px)}
 .doc-minimal .doc-dates-strip .dd-item{font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#bbb}
 .doc-minimal .doc-dates-strip .dd-item strong{display:block;font-size:12.5px;color:#1a1a1a;text-transform:none;letter-spacing:0;margin:3px 0 0}
 .doc-minimal .doc-divider{display:none}
-.doc-minimal .doc-event-banner{background:transparent!important;border-bottom:1px solid #eee;color:#1a1a1a!important;font-weight:500;letter-spacing:.03em;padding:.9rem 2.4rem;text-align:left}
+.doc-minimal .doc-event-banner{
+  background:transparent!important;
+  border-bottom:1px solid #eee;
+  color:#1a1a1a!important;
+  font-weight:500;
+  letter-spacing:.01em;
+  padding:6px 2.4rem;
+  text-align:left;
+  font-size:9.5px;
+}
 .doc-minimal .doc-parties{background:transparent;padding:1.8rem 2.4rem;border-bottom:1px solid #eee;gap:1.5rem}
 .doc-minimal .party-label{font-size:9.5px;letter-spacing:.1em;color:#ccc}
 .doc-minimal .party-name{font-weight:600;font-size:13.5px}
@@ -2011,17 +2033,28 @@ function render() {
   var showEv = gc('showEvent') && (gv('eventName')||'').trim();
   var activeEventDates = getActiveEventDates();
   var evLoc = (gv('eventLocation')||'').trim();
-  var evMeta = '';
-  if (activeEventDates.length) {
-    evMeta += '<span class="event-dates-preview">' +
-      activeEventDates.map(function(d){
-        return '<span class="event-date-chip">' + esc(d) + '</span>';
-      }).join('') +
-      '</span>';
+
+  var eventParts = [];
+  if (showEv) {
+    eventParts.push('<span class="event-detail-name">' + esc(gv('eventName')) + '</span>');
+    if (activeEventDates.length) {
+      eventParts.push(
+        '<span class="event-detail-dates">' +
+        activeEventDates.map(function(d){ return esc(d); }).join(' / ') +
+        '</span>'
+      );
+    }
+    if (evLoc) {
+      eventParts.push('<span class="event-detail-location">' + esc(evLoc) + '</span>');
+    }
   }
-  if (evLoc) evMeta += '<span style="margin-left:12px">&middot;&nbsp; ' + esc(evLoc) + '</span>';
+
   var eventBanner = showEv
-    ? '<div class="doc-event-banner" style="background:' + rgba(accent,0.07) + ';color:' + accent + '">' + esc(gv('eventName')) + evMeta + '</div>'
+    ? '<div class="doc-event-banner" style="background:' + rgba(accent,0.045) + ';color:' + accent + '">' +
+        eventParts.map(function(part, i){
+          return (i ? '<span class="event-detail-sep">&bull;</span>' : '') + part;
+        }).join('') +
+      '</div>'
     : '';
 
   // Build category sections
