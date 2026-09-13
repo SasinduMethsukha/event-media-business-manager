@@ -145,28 +145,30 @@ input:checked+.slider:before{transform:translateX(16px)}
 .doc-page-number{padding:6px 1.8rem;font-size:9.5px;color:#ccc;text-align:right}
 .doc-accent-bar{height:6px}
 .doc-event-banner{
-  padding:11px 1.8rem;
-  font-size:13px;
-  font-weight:700;
-  text-align:center;
-  border-top:1px solid rgba(201,70,50,.08);
-  border-bottom:1px solid rgba(201,70,50,.12);
-  line-height:1.4;
+  padding:7px 1.8rem;
+  font-size:11px;
+  font-weight:500;
+  text-align:left;
+  border-bottom:1px solid #eee;
+  line-height:1.45;
   letter-spacing:0;
   white-space:normal;
-  background:#fff3f0!important;
-  color:#c93d2f!important;
+  background:#fafafa;
+  color:#777;
 }
-.doc-event-banner .event-detail-name,
+.doc-event-banner .event-detail-name{
+  font-weight:600;
+  color:#555;
+}
 .doc-event-banner .event-detail-dates,
 .doc-event-banner .event-detail-location{
-  font-weight:700;
-  color:#c93d2f;
+  font-weight:500;
+  color:#777;
 }
 .doc-event-banner .event-detail-sep{
-  margin:0 11px;
-  color:#c93d2f;
-  font-weight:700;
+  margin:0 8px;
+  color:#aaa;
+  font-weight:500;
 }
 .doc-header-wrap{padding:1.5rem 1.8rem 1.1rem;display:flex;align-items:flex-start;justify-content:space-between;gap:1.5rem}
 .doc-company-name{font-size:16px;font-weight:800;letter-spacing:-.3px;margin-bottom:1px}
@@ -248,6 +250,17 @@ input:checked+.slider:before{transform:translateX(16px)}
   padding:11px 2.4rem;
   text-align:center;
   font-size:13px;
+}
+.doc-minimal .doc-event-banner .event-detail-name,
+.doc-minimal .doc-event-banner .event-detail-dates,
+.doc-minimal .doc-event-banner .event-detail-location{
+  color:#c93d2f!important;
+  font-weight:700;
+}
+.doc-minimal .doc-event-banner .event-detail-sep{
+  color:#c93d2f!important;
+  font-weight:700;
+  margin:0 11px;
 }
 .doc-minimal .doc-parties{background:transparent;padding:1.8rem 2.4rem;border-bottom:1px solid #eee;gap:1.5rem}
 .doc-minimal .party-label{font-size:9.5px;letter-spacing:.1em;color:#ccc}
