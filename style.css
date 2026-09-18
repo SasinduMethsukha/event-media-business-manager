@@ -65,12 +65,12 @@ input:checked+.slider:before{transform:translateX(16px)}
 .btn{padding:8px 14px;border:1px solid var(--border2);border-radius:var(--radius);font-size:12.5px;cursor:pointer;background:var(--surface);color:var(--text);display:inline-flex;align-items:center;gap:5px;transition:all .15s;font-weight:600;white-space:nowrap}
 .btn:hover{background:var(--surface2);border-color:var(--text3)}
 .btn:active{transform:scale(.98)}
-.btn-primary{background:var(--accent);color:#fff;border-color:var(--accent);box-shadow:0 2px 8px rgba(165,58,45,.28)}
-.btn-primary:hover{background:var(--accent2);border-color:var(--accent2);box-shadow:0 3px 10px rgba(165,58,45,.36)}
-.btn-success{background:#1a7a45;color:#fff;border-color:#1a7a45}
-.btn-success:hover{background:#166238}
-.btn-info{background:#2563a8;color:#fff;border-color:#2563a8}
-.btn-info:hover{background:#1e5288}
+.btn-primary{background:var(--accent);color:#fff!important;border-color:var(--accent);box-shadow:0 2px 8px rgba(165,58,45,.28)}
+.btn-primary:hover{background:var(--accent2);border-color:var(--accent2);color:#fff!important;box-shadow:0 3px 10px rgba(165,58,45,.36)}
+.btn-success{background:#1a7a45;color:#fff!important;border-color:#1a7a45}
+.btn-success:hover{background:#166238;color:#fff!important}
+.btn-info{background:#2563a8;color:#fff!important;border-color:#2563a8}
+.btn-info:hover{background:#1e5288;color:#fff!important}
 .btn-sm{padding:6px 11px;font-size:12px}
 .btn-icon{padding:5px;border:none;background:none;cursor:pointer;color:var(--text2);border-radius:var(--radius);display:inline-flex;align-items:center;transition:all .15s}
 .btn-icon:hover{background:var(--accent-light);color:var(--accent)}
@@ -501,6 +501,7 @@ body{
 .btn-info:hover{background:linear-gradient(145deg,#317ed8,#174782)!important;border-color:transparent!important;color:#ffffff!important;box-shadow:0 8px 20px rgba(43,114,196,.32)!important}
 .btn-danger{background:linear-gradient(145deg,#d32f2f,#b71c1c)!important;border-color:transparent!important;color:#ffffff!important;box-shadow:0 6px 16px rgba(211,47,47,.25)!important}
 .btn-danger:hover{background:linear-gradient(145deg,#e53935,#9a0007)!important;border-color:transparent!important;color:#ffffff!important;box-shadow:0 8px 20px rgba(211,47,47,.32)!important}
+.btn-primary i, .btn-success i, .btn-info i, .btn-danger i {color:#ffffff!important}
 .btn-sm{min-height:32px;padding:6px 11px;font-size:12px}
 .btn-icon{border-radius:8px;min-width:30px;min-height:30px;justify-content:center;flex-shrink:0}
 .multi-day-toggle{flex-shrink:0;white-space:nowrap}
