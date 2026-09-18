@@ -546,6 +546,7 @@ function renderCats() {
         '<input class="cat-name-input" value="' + esc(c.name) + '" oninput="updateCatField(' + c.id + ',\'name\',this.value)" placeholder="Category name">' +
         '<button class="btn-icon" onclick="removeCategory(' + c.id + ')"><i class="ti ti-trash"></i></button>' +
       '</div>' +
+      '<div class="cat-table-wrap">' +
       '<table class="item-table"><thead><tr>' +
         '<th><input value="' + esc(colLabels.desc) + '" oninput="updateColLabel(\'desc\',this.value)" style="width:100%;border:none;background:transparent;font:inherit;font-weight:600;font-size:10.5px;color:var(--text2);text-transform:uppercase;padding:1px 2px"></th>' +
         '<th><input value="' + esc(colLabels.tag) + '" oninput="updateColLabel(\'tag\',this.value)" style="width:100%;border:none;background:transparent;font:inherit;font-weight:600;font-size:10.5px;color:var(--text2);text-transform:uppercase;padding:1px 2px"></th>' +
@@ -553,6 +554,7 @@ function renderCats() {
         '<th><input value="' + esc(colLabels.unit) + '" oninput="updateColLabel(\'unit\',this.value)" style="width:100%;border:none;background:transparent;font:inherit;font-weight:600;font-size:10.5px;color:var(--text2);text-transform:uppercase;padding:1px 2px" title="Displayed as &quot;' + esc(colLabels.unit) + ' (' + sym + ')&quot; on the document">&nbsp;(' + sym + ')</th>' +
         '<th><input value="' + esc(colLabels.total) + '" oninput="updateColLabel(\'total\',this.value)" style="width:100%;border:none;background:transparent;font:inherit;font-weight:600;font-size:10.5px;color:var(--text2);text-transform:uppercase;padding:1px 2px"></th><th></th>' +
       '</tr></thead><tbody>' + rows + '</tbody></table>' +
+      '</div>' +
       '<div class="add-item-row">' +
         '<button class="btn btn-sm btn-ghost" onclick="addItem(' + c.id + ')"><i class="ti ti-plus"></i> Add item</button>' +
         '<div style="display:flex;gap:4px">' +

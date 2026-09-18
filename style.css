@@ -93,11 +93,17 @@ input:checked+.slider:before{transform:translateX(16px)}
 .cat-disc-row label{color:var(--text2);font-weight:500;white-space:nowrap}
 .cat-disc-row select,.cat-disc-row input[type=number]{padding:3px 7px;border:1px solid var(--border2);border-radius:4px;font-size:12px;background:var(--surface);color:var(--text)}
 .cat-disc-row input[type=number]{width:80px;text-align:right}
-.item-table{width:100%;border-collapse:collapse}
+.cat-table-wrap{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:thin;scrollbar-color:var(--border2) transparent}
+.cat-table-wrap::-webkit-scrollbar{height:5px}
+.cat-table-wrap::-webkit-scrollbar-track{background:transparent}
+.cat-table-wrap::-webkit-scrollbar-thumb{background:var(--border2);border-radius:4px}
+.cat-table-wrap::-webkit-scrollbar-thumb:hover{background:var(--text3)}
+.item-table{width:100%;min-width:500px;border-collapse:collapse}
 .item-table th{font-size:10.5px;color:var(--text2);font-weight:600;text-align:left;padding:4px 8px;background:var(--surface2);border-bottom:1px solid var(--border)}
-.item-table th:nth-child(3),.item-table th:nth-child(4){width:92px;text-align:right}
-.item-table th:nth-child(5){width:82px;text-align:right}
-.item-table th:nth-child(2){width:75px}
+.item-table th:nth-child(2){width:65px}
+.item-table th:nth-child(3){width:70px;text-align:right}
+.item-table th:nth-child(4){width:75px;text-align:right}
+.item-table th:nth-child(5){min-width:175px;text-align:right}
 .item-table th:last-child{width:28px;text-align:center}
 .item-row td{padding:3px 4px;border-bottom:1px solid var(--border);vertical-align:middle}
 .item-row:last-child td{border-bottom:none}
@@ -311,8 +317,8 @@ input:checked+.slider:before{transform:translateX(16px)}
   .adj-row{grid-template-columns:1fr;gap:.5rem}
   .cat-disc-row{flex-direction:column;align-items:stretch}
   .cat-disc-row select,.cat-disc-row input[type=number]{width:100%}
-  .cat-block{overflow-x:auto}
-  .item-table{min-width:460px}
+  .cat-table-wrap{overflow-x:auto}
+  .item-table{min-width:500px}
   /* Keep the invoice document at a readable working width and let it scroll
      sideways instead of squeezing its fixed-width columns unreadable thin */
   .preview-doc{width:640px;max-width:none}
@@ -488,11 +494,11 @@ body{
 .btn-primary:hover{background:linear-gradient(145deg,#ef463d,#c72720);border-color:transparent;color:#fff;box-shadow:0 10px 22px rgba(217,50,41,.25)}
 .btn-success{background:#16794d;border-color:#16794d}.btn-success:hover{background:#12633f;border-color:#12633f;color:#fff}
 .btn-info{background:#2867b2;border-color:#2867b2}.btn-info:hover{background:#225894;border-color:#225894;color:#fff}
-.btn-sm{min-height:32px;padding:6px 10px}
-.btn-icon{border-radius:8px;min-width:30px;min-height:30px;justify-content:center}
+.btn-icon{border-radius:8px;min-width:30px;min-height:30px;justify-content:center;flex-shrink:0}
+.multi-day-toggle{flex-shrink:0;white-space:nowrap}
 
 /* Invoice workspace */
-.main{grid-template-columns:minmax(420px,500px) 1fr;min-height:calc(100vh - 68px)}
+.main{grid-template-columns:minmax(420px,520px) 1fr;min-height:calc(100vh - 68px)}
 .sidebar{top:68px;max-height:calc(100vh - 68px);border-right:1px solid var(--border);background:var(--surface)}
 .preview-pane{
   padding:36px;
