@@ -1446,90 +1446,37 @@ function filterHistoryList() {
     clearBtn.style.display = query ? 'block' : 'none';
   }
 
-  // 1. Array filtering if currentHistoryEntries is populated
-  if (currentHistoryEntries && currentHistoryEntries.length) {
-    var filtered = currentHistoryEntries.filter(function(entry) {
-      if (!query) return true;
-      var num = (entry.doc_number || '').toLowerCase();
-      var type = (entry.doc_type || '').toLowerCase();
-      var client = (entry.client_name || '').toLowerCase();
-      var eventName = (entry.event_name || '').toLowerCase();
-      var sym = (entry.currency || 'Rs. ').toLowerCase();
-      var grand = parseFloat(entry.grand_total || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}).toLowerCase();
-      var dateStr = '';
-      try { dateStr = new Date(entry.updated_at).toLocaleString().toLowerCase(); } catch(e) { dateStr = (entry.updated_at || '').toLowerCase(); }
-      var combined = (type + ' #' + num + ' ' + client + ' ' + eventName + ' ' + sym + ' ' + grand + ' ' + dateStr).toLowerCase();
-      return combined.indexOf(query) !== -1;
-    });
+  var cards = wrap.querySelectorAll('.signer-card');
+  var emptyMsg = wrap.querySelector('.history-empty-search-msg');
 
-    if (!filtered.length) {
-      wrap.innerHTML = '<div class="history-empty-search-msg" style="padding:1.5rem;text-align:center;color:var(--text2);font-size:12.5px"><i class="ti ti-search-off" style="font-size:24px;display:block;margin-bottom:6px;color:var(--text3)"></i>No documents matching "<strong>' + esc(query) + '</strong>".</div>';
-      return;
-    }
-
-    var html = '';
-    filtered.forEach(function(entry){
-      var sym = entry.currency || 'Rs. ';
-      var amt = sym + parseFloat(entry.grand_total||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
-      var dateStr = '';
-      try { dateStr = new Date(entry.updated_at).toLocaleString(); } catch(e) { dateStr = entry.updated_at || ''; }
-      var subText = esc(entry.client_name || '');
-      if (entry.event_name) {
-        subText += (subText ? ' &bull; ' : '') + esc(entry.event_name);
-      }
-      html += '<div class="signer-card history-item-card" style="margin-bottom:.6rem">' +
-        '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:.5rem">' +
-          '<div>' +
-            '<div style="font-weight:700;font-size:13px;color:var(--text)">' + esc(entry.doc_type) + ' #' + esc(entry.doc_number) + '</div>' +
-            '<div style="font-size:12px;color:var(--text2);margin-top:2px">' + subText + '</div>' +
-            '<div style="font-size:12px;color:var(--accent);font-weight:700;margin-top:2px">' + esc(amt) + '</div>' +
-            '<div style="font-size:11px;color:var(--text3);margin-top:2px">' + esc(dateStr) + '</div>' +
-          '</div>' +
-          '<div style="display:flex;flex-direction:column;gap:4px">' +
-            '<button class="btn btn-sm" onclick="loadSavedDoc(\'' + entry.id + '\')"><i class="ti ti-folder-open"></i> Load</button>' +
-            '<button class="btn btn-sm" style="color:#dc2626" onclick="deleteSavedDoc(\'' + entry.id + '\')"><i class="ti ti-trash"></i> Delete</button>' +
-          '</div>' +
-        '</div>' +
-      '</div>';
-    });
-    wrap.innerHTML = html;
+  if (!cards || !cards.length) {
+    if (emptyMsg && !query) emptyMsg.remove();
     return;
   }
 
-  // 2. Direct DOM fallback: If currentHistoryEntries is empty, filter DOM elements directly
-  var cards = wrap.querySelectorAll('.signer-card, .history-item-card');
-  if (cards && cards.length) {
-    var matchCount = 0;
-    cards.forEach(function(card) {
-      var text = (card.textContent || '').toLowerCase();
-      if (!query || text.indexOf(query) !== -1) {
-        card.style.display = '';
-        matchCount++;
-      } else {
-        card.style.display = 'none';
-      }
-    });
-
-    var existingEmptyMsg = wrap.querySelector('.history-empty-search-msg');
-    if (!matchCount) {
-      if (!existingEmptyMsg) {
-        var msg = document.createElement('div');
-        msg.className = 'history-empty-search-msg';
-        msg.style.cssText = 'padding:1.5rem;text-align:center;color:var(--text2);font-size:12.5px';
-        msg.innerHTML = '<i class="ti ti-search-off" style="font-size:24px;display:block;margin-bottom:6px;color:var(--text3)"></i>No documents matching "<strong>' + esc(query) + '</strong>".';
-        wrap.appendChild(msg);
-      } else {
-        existingEmptyMsg.style.display = '';
-        existingEmptyMsg.innerHTML = '<i class="ti ti-search-off" style="font-size:24px;display:block;margin-bottom:6px;color:var(--text3)"></i>No documents matching "<strong>' + esc(query) + '</strong>".';
-      }
-    } else if (existingEmptyMsg) {
-      existingEmptyMsg.style.display = 'none';
+  var visibleCount = 0;
+  cards.forEach(function(card) {
+    var text = (card.textContent || '').toLowerCase();
+    if (!query || text.indexOf(query) !== -1) {
+      card.style.display = '';
+      visibleCount++;
+    } else {
+      card.style.display = 'none';
     }
-    return;
-  }
+  });
 
-  if (!sbConfigured()) return;
-  wrap.innerHTML = '<div style="padding:1rem;text-align:center;color:var(--text2);font-size:12.5px">No saved documents yet. Click <strong>Save</strong> in the top bar to store the current document in Supabase.</div>';
+  if (!visibleCount && query) {
+    if (!emptyMsg) {
+      emptyMsg = document.createElement('div');
+      emptyMsg.className = 'history-empty-search-msg';
+      emptyMsg.style.cssText = 'padding:1.5rem;text-align:center;color:var(--text2);font-size:12.5px';
+      wrap.appendChild(emptyMsg);
+    }
+    emptyMsg.style.display = 'block';
+    emptyMsg.innerHTML = '<i class="ti ti-search-off" style="font-size:24px;display:block;margin-bottom:6px;color:var(--text3)"></i>No documents matching "<strong>' + esc(query) + '</strong>".';
+  } else if (emptyMsg) {
+    emptyMsg.style.display = 'none';
+  }
 }
 
 function clearHistorySearch() {
