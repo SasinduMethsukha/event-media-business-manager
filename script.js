@@ -1404,10 +1404,13 @@ async function saveCurrentDoc() {
     }
   }
 }
+var currentHistoryEntries = [];
+
 async function refreshHistoryList() {
   var wrap = document.getElementById('historyList');
   if (!wrap) return;
   if (!sbConfigured()) {
+    currentHistoryEntries = [];
     wrap.innerHTML = '<div style="padding:1rem;text-align:center;color:var(--text2);font-size:12.5px">Connect Supabase in the <strong>Cloud</strong> tab to see saved documents here.</div>';
     return;
   }
@@ -1415,44 +1418,94 @@ async function refreshHistoryList() {
   try {
     var ws = gv('sbWorkspace').trim();
     var url = sbBase() + '/rest/v1/invoice_documents?workspace_id=eq.' + encodeURIComponent(ws) +
-      '&select=id,doc_number,doc_type,client_name,grand_total,currency,updated_at&order=updated_at.desc&limit=200';
+      '&select=id,doc_number,doc_type,client_name,event_name,grand_total,currency,updated_at&order=updated_at.desc&limit=200';
     var r = await fetch(url, { headers: sbHeaders(gv('sbKey').trim()) });
     if (!r.ok) { var errText = await r.text(); throw new Error(errText || ('HTTP ' + r.status)); }
     var rows = await r.json();
-    if (!rows.length) {
-      wrap.innerHTML = '<div style="padding:1rem;text-align:center;color:var(--text2);font-size:12.5px">No saved documents yet. Click <strong>Save</strong> in the top bar to store the current document in Supabase.</div>';
-      return;
-    }
-    var html = '';
-    rows.forEach(function(entry){
-      var sym = entry.currency || 'Rs. ';
-      var amt = sym + parseFloat(entry.grand_total||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
-      var dateStr = '';
-      try { dateStr = new Date(entry.updated_at).toLocaleString(); } catch(e) { dateStr = entry.updated_at || ''; }
-      html += '<div class="signer-card" style="margin-bottom:.6rem">' +
-        '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:.5rem">' +
-          '<div>' +
-            '<div style="font-weight:700;font-size:13px;color:var(--text)">' + esc(entry.doc_type) + ' #' + esc(entry.doc_number) + '</div>' +
-            '<div style="font-size:12px;color:var(--text2);margin-top:2px">' + esc(entry.client_name || '') + '</div>' +
-            '<div style="font-size:12px;color:var(--accent);font-weight:700;margin-top:2px">' + esc(amt) + '</div>' +
-            '<div style="font-size:11px;color:var(--text3);margin-top:2px">' + esc(dateStr) + '</div>' +
-          '</div>' +
-          '<div style="display:flex;flex-direction:column;gap:4px">' +
-            '<button class="btn btn-sm" onclick="loadSavedDoc(\'' + entry.id + '\')"><i class="ti ti-folder-open"></i> Load</button>' +
-            '<button class="btn btn-sm" style="color:#dc2626" onclick="deleteSavedDoc(\'' + entry.id + '\')"><i class="ti ti-trash"></i> Delete</button>' +
-          '</div>' +
-        '</div>' +
-      '</div>';
-    });
-    wrap.innerHTML = html;
+    currentHistoryEntries = rows || [];
+    filterHistoryList();
   } catch (e) {
     console.error('Failed to load history', e);
+    currentHistoryEntries = [];
     if (isMissingTableError(e.message)) {
       wrap.innerHTML = '<div style="padding:1rem;text-align:center;color:var(--text2);font-size:12.5px">Your Supabase project doesn\'t have the required table yet. <button class="btn btn-sm btn-primary" style="margin-top:.5rem" onclick="offerCreateTables()"><i class="ti ti-database"></i> Create Tables Now</button></div>';
     } else {
       wrap.innerHTML = '<div style="padding:1rem;text-align:center;color:var(--text2);font-size:12.5px">Could not load saved documents (' + esc(e.message) + ').</div>';
     }
   }
+}
+
+function filterHistoryList() {
+  var wrap = document.getElementById('historyList');
+  if (!wrap) return;
+  var input = document.getElementById('historySearchInput');
+  var clearBtn = document.getElementById('historySearchClear');
+  var query = input ? (input.value || '').trim().toLowerCase() : '';
+
+  if (clearBtn) {
+    clearBtn.style.display = query ? 'block' : 'none';
+  }
+
+  if (!currentHistoryEntries || !currentHistoryEntries.length) {
+    if (!sbConfigured()) return;
+    wrap.innerHTML = '<div style="padding:1rem;text-align:center;color:var(--text2);font-size:12.5px">No saved documents yet. Click <strong>Save</strong> in the top bar to store the current document in Supabase.</div>';
+    return;
+  }
+
+  var filtered = currentHistoryEntries.filter(function(entry) {
+    if (!query) return true;
+    var num = (entry.doc_number || '').toLowerCase();
+    var type = (entry.doc_type || '').toLowerCase();
+    var client = (entry.client_name || '').toLowerCase();
+    var eventName = (entry.event_name || '').toLowerCase();
+    var sym = (entry.currency || 'Rs. ').toLowerCase();
+    var grand = parseFloat(entry.grand_total || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}).toLowerCase();
+    var dateStr = '';
+    try { dateStr = new Date(entry.updated_at).toLocaleString().toLowerCase(); } catch(e) { dateStr = (entry.updated_at || '').toLowerCase(); }
+    var combined = (type + ' #' + num + ' ' + client + ' ' + eventName + ' ' + sym + grand + ' ' + dateStr).toLowerCase();
+    return combined.indexOf(query) !== -1;
+  });
+
+  if (!filtered.length) {
+    wrap.innerHTML = '<div style="padding:1.5rem;text-align:center;color:var(--text2);font-size:12.5px"><i class="ti ti-search-off" style="font-size:24px;display:block;margin-bottom:6px;color:var(--text3)"></i>No documents matching "<strong>' + esc(query) + '</strong>".</div>';
+    return;
+  }
+
+  var html = '';
+  filtered.forEach(function(entry){
+    var sym = entry.currency || 'Rs. ';
+    var amt = sym + parseFloat(entry.grand_total||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+    var dateStr = '';
+    try { dateStr = new Date(entry.updated_at).toLocaleString(); } catch(e) { dateStr = entry.updated_at || ''; }
+    var subText = esc(entry.client_name || '');
+    if (entry.event_name) {
+      subText += (subText ? ' &bull; ' : '') + esc(entry.event_name);
+    }
+    html += '<div class="signer-card" style="margin-bottom:.6rem">' +
+      '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:.5rem">' +
+        '<div>' +
+          '<div style="font-weight:700;font-size:13px;color:var(--text)">' + esc(entry.doc_type) + ' #' + esc(entry.doc_number) + '</div>' +
+          '<div style="font-size:12px;color:var(--text2);margin-top:2px">' + subText + '</div>' +
+          '<div style="font-size:12px;color:var(--accent);font-weight:700;margin-top:2px">' + esc(amt) + '</div>' +
+          '<div style="font-size:11px;color:var(--text3);margin-top:2px">' + esc(dateStr) + '</div>' +
+        '</div>' +
+        '<div style="display:flex;flex-direction:column;gap:4px">' +
+          '<button class="btn btn-sm" onclick="loadSavedDoc(\'' + entry.id + '\')"><i class="ti ti-folder-open"></i> Load</button>' +
+          '<button class="btn btn-sm" style="color:#dc2626" onclick="deleteSavedDoc(\'' + entry.id + '\')"><i class="ti ti-trash"></i> Delete</button>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  });
+  wrap.innerHTML = html;
+}
+
+function clearHistorySearch() {
+  var input = document.getElementById('historySearchInput');
+  if (input) {
+    input.value = '';
+    input.focus();
+  }
+  filterHistoryList();
 }
 async function loadSavedDoc(id) {
   try {
