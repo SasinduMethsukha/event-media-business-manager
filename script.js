@@ -1185,9 +1185,18 @@ function openSqlEditor() {
 function isMissingTableError(raw) {
   try { return JSON.parse(raw).code === 'PGRST205'; } catch (e) { return false; }
 }
+function isPermissionDeniedError(raw) {
+  try {
+    var p = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    return p.code === '42501' || (p.message && p.message.toLowerCase().indexOf('permission denied') !== -1);
+  } catch (e) {
+    var str = String(raw || '');
+    return str.indexOf('42501') !== -1 || str.toLowerCase().indexOf('permission denied') !== -1;
+  }
+}
 function offerCreateTables() {
   showPane('cloud');
-  if (confirm('Your Supabase project is missing the required table(s). Open the SQL Editor now to create them? The setup script will be copied to your clipboard automatically — just paste it there and click Run.')) {
+  if (confirm('Your Supabase project is missing the required table(s) or permissions. Open the SQL Editor now to run the setup script? The script will be copied to your clipboard automatically — just paste it there and click Run.')) {
     openSqlEditor();
   }
 }
@@ -1207,6 +1216,9 @@ function testSupabase() {
     .catch(function(e){
       if (isMissingTableError(e.message)) {
         st.innerHTML = '<span class="pill pill-warn"><i class="ti ti-alert-triangle"></i> Tables not created yet</span>';
+        offerCreateTables();
+      } else if (isPermissionDeniedError(e.message)) {
+        st.innerHTML = '<span class="pill pill-warn"><i class="ti ti-alert-triangle"></i> Permission denied on tables</span>';
         offerCreateTables();
       } else {
         st.innerHTML = '<span class="pill pill-warn"><i class="ti ti-alert-triangle"></i> Could not connect (' + e.message + ')</span>';
@@ -1397,7 +1409,7 @@ async function saveCurrentDoc() {
     console.error('Save failed', e);
     btn.innerHTML = originalHtml;
     btn.disabled = false;
-    if (isMissingTableError(e.message)) {
+    if (isMissingTableError(e.message) || isPermissionDeniedError(e.message)) {
       offerCreateTables();
     } else {
       alert('Could not save this document to Supabase: ' + e.message);
@@ -1427,8 +1439,8 @@ async function refreshHistoryList() {
   } catch (e) {
     console.error('Failed to load history', e);
     currentHistoryEntries = [];
-    if (isMissingTableError(e.message)) {
-      wrap.innerHTML = '<div style="padding:1rem;text-align:center;color:var(--text2);font-size:12.5px">Your Supabase project doesn\'t have the required table yet. <button class="btn btn-sm btn-primary" style="margin-top:.5rem" onclick="offerCreateTables()"><i class="ti ti-database"></i> Create Tables Now</button></div>';
+    if (isMissingTableError(e.message) || isPermissionDeniedError(e.message)) {
+      wrap.innerHTML = '<div style="padding:1rem;text-align:center;color:var(--text2);font-size:12.5px">Supabase tables or permissions not set up yet. <button class="btn btn-sm btn-primary" style="margin-top:.5rem" onclick="offerCreateTables()"><i class="ti ti-database"></i> Fix Tables / Permissions</button></div>';
     } else {
       wrap.innerHTML = '<div style="padding:1rem;text-align:center;color:var(--text2);font-size:12.5px">Could not load saved documents (' + esc(e.message) + ').</div>';
     }

@@ -483,6 +483,19 @@ create policy "Allow anon read/write" on other_expenses for all using (true) wit
 create index if not exists other_expenses_ws_date on other_expenses (workspace_id, expense_date);
 create index if not exists other_expenses_ws_category on other_expenses (workspace_id, category);
 
+-- Grant schema and table privileges to API roles (anon & authenticated)
+grant usage on schema public to anon, authenticated;
+grant select, insert, update, delete on table invoice_app_state to anon, authenticated;
+grant select, insert, update, delete on table invoice_documents to anon, authenticated;
+grant select, insert, update, delete on table invoice_payments to anon, authenticated;
+grant select, insert, update, delete on table equipment_rentals to anon, authenticated;
+grant select, insert, update, delete on table owned_equipment_hires to anon, authenticated;
+grant select, insert, update, delete on table other_expenses to anon, authenticated;
+grant all privileges on all tables in schema public to anon, authenticated;
+grant all privileges on all sequences in schema public to anon, authenticated;
+alter default privileges in schema public grant all on tables to anon, authenticated;
+alter default privileges in schema public grant all on sequences to anon, authenticated;
+
 
 -- ─────────────────────────────────────────────────────────────
 -- PROFILE-BASED LOGIN + ROLE SECURITY
@@ -697,6 +710,12 @@ with check (
   public.app_role() in ('admin','employee')
   and workspace_id = public.app_workspace_id()
 );
+
+-- Grant privileges for app_profiles and employee_invites
+grant select, insert, update, delete on table app_profiles to anon, authenticated;
+grant select, insert, update, delete on table employee_invites to anon, authenticated;
+grant all privileges on all tables in schema public to anon, authenticated;
+grant all privileges on all sequences in schema public to anon, authenticated;
 
 </div>
     <button class="btn btn-sm" onclick="copySupabaseSql()"><i class="ti ti-copy"></i> Copy SQL</button>
