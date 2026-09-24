@@ -1416,7 +1416,52 @@ async function saveCurrentDoc() {
     }
   }
 }
+function esc(s) {
+  if (s === null || s === undefined) return '';
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 var currentHistoryEntries = [];
+
+function renderHistoryCards(rows) {
+  var wrap = document.getElementById('historyList');
+  if (!wrap) return;
+  if (!rows || !rows.length) {
+    wrap.innerHTML = '<div style="padding:1.5rem;text-align:center;color:var(--text2);font-size:12.5px"><i class="ti ti-receipt-off" style="font-size:24px;display:block;margin-bottom:6px;color:var(--text3)"></i>No saved documents found in this workspace yet.</div>';
+    return;
+  }
+  var html = '';
+  rows.forEach(function(item) {
+    var dt = item.updated_at ? new Date(item.updated_at).toLocaleDateString(undefined, { month:'short', day:'numeric', year:'numeric' }) : '';
+    var total = (typeof item.grand_total === 'number') ? (item.currency || 'Rs. ') + item.grand_total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '';
+    var docType = item.doc_type || 'Quotation';
+    var typeClass = docType.toLowerCase() === 'invoice' ? 'pill-success' : 'pill-info';
+    html += '<div class="signer-card" style="margin-bottom:.65rem;padding:.75rem;border:1px solid var(--border);border-radius:10px;background:var(--surface);display:flex;flex-direction:column;gap:6px">' +
+      '<div style="display:flex;align-items:center;justify-content:space-between">' +
+        '<div style="display:flex;align-items:center;gap:6px">' +
+          '<span class="pill ' + typeClass + '" style="font-size:10.5px;padding:2px 7px;font-weight:600">' + esc(docType) + '</span>' +
+          '<strong style="font-size:13px;color:var(--text)">' + esc(item.doc_number || '(No Number)') + '</strong>' +
+        '</div>' +
+        '<span style="font-size:11px;color:var(--text3)">' + esc(dt) + '</span>' +
+      '</div>' +
+      '<div style="font-size:12.5px;font-weight:500;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(item.client_name || '(No client)') + '</div>' +
+      (item.event_name ? '<div style="font-size:11.5px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><i class="ti ti-calendar-event" style="margin-right:3px"></i>' + esc(item.event_name) + '</div>' : '') +
+      '<div style="display:flex;align-items:center;justify-content:space-between;margin-top:4px;padding-top:6px;border-top:1px dashed var(--border)">' +
+        '<div style="font-size:13px;font-weight:700;color:var(--accent)">' + esc(total) + '</div>' +
+        '<div style="display:flex;gap:4px">' +
+          '<button class="btn btn-sm btn-primary" style="padding:3px 10px;font-size:11.5px" onclick="loadSavedDoc(\'' + esc(item.id) + '\')"><i class="ti ti-folder-open"></i> Load</button>' +
+          '<button class="btn btn-sm btn-danger" style="padding:3px 7px;font-size:11.5px" title="Delete" onclick="deleteSavedDoc(\'' + esc(item.id) + '\')"><i class="ti ti-trash"></i></button>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  });
+  wrap.innerHTML = html;
+}
 
 async function refreshHistoryList() {
   var wrap = document.getElementById('historyList');
@@ -1435,6 +1480,7 @@ async function refreshHistoryList() {
     if (!r.ok) { var errText = await r.text(); throw new Error(errText || ('HTTP ' + r.status)); }
     var rows = await r.json();
     currentHistoryEntries = rows || [];
+    renderHistoryCards(currentHistoryEntries);
     filterHistoryList();
   } catch (e) {
     console.error('Failed to load history', e);
