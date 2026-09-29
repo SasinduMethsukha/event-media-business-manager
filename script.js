@@ -2488,7 +2488,12 @@ async function savePaymentReceipt() {
     await loadManagerData();
   } catch (e) {
     console.error('Save payment receipt failed', e);
-    alert('Could not save payment receipt: ' + e.message);
+    var msg = e.message || '';
+    if (msg.indexOf('PGRST205') >= 0 || msg.indexOf('payment_receipts') >= 0 || msg.indexOf('schema cache') >= 0) {
+      alert('The "payment_receipts" table was not found in your Supabase database.\n\nPlease open the Business Manager -> Setup tab (or your Supabase SQL Editor) and run the updated Setup SQL script once to create the table, then try again.');
+    } else {
+      alert('Could not save payment receipt: ' + msg);
+    }
   } finally {
     if (saveBtn) { saveBtn.disabled = false; saveBtn.innerHTML = origText; }
   }
