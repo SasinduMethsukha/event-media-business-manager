@@ -2085,7 +2085,7 @@ async function loadManagerData() {
   try {
     if(isProfileAdmin()){
       var results=await Promise.all([
-        managerGet('invoice_documents','id,doc_number,doc_type,client_name,event_name,grand_total,currency,issue_date,due_date,payment_status,amount_paid,created_at,updated_at'),
+        managerGet('invoice_documents','id,doc_number,doc_type,client_name,event_name,grand_total,currency,issue_date,due_date,payment_status,amount_paid,snapshot,created_at,updated_at'),
         managerGet('invoice_payments','id,invoice_id,amount,payment_date,method,reference,notes,created_at').catch(function(){ return []; }),
         managerGet('payment_receipts','id,receipt_no,payment_date,customer_id,client_name,invoice_id,event_name,amount,payment_method,reference_no,bank_account,notes,created_by,created_at,updated_at').catch(function(){ return []; }),
         managerGet('equipment_rentals','id,supplier_name,supplier_contact,event_name,item_description,quantity,rent_date,return_date,amount,amount_paid,status,notes,created_at,updated_at'),
@@ -2637,14 +2637,17 @@ function viewPaymentReceiptDoc(id) {
 
   var balRemaining = Math.max(0, invTotal - totalPaidToDate);
 
-  var coName = gv('coName') || 'Event Media Production';
-  var coEmail = gv('coEmail') || 'eventmediap@gmail.com';
-  var coPhone = gv('coPhone') || '+94 777486548 | +94 752878875';
-  var coAddr = gv('coAddr') || '485/A, Weera Mw, Depanama, Pannipitiya';
-  var coInstagram = (gv('coInstagram') || '').trim();
-  var coWebsite = (gv('coWebsite') || '').trim();
+  // Read company details from the invoice snapshot (most reliable — saved at invoice time),
+  // falling back to current generator form values, then to hardcoded defaults.
+  var snapForm = (inv && inv.snapshot && inv.snapshot.form) ? inv.snapshot.form : {};
+  var coName     = snapForm.coName     || gv('coName')     || 'Event Media Production';
+  var coEmail    = snapForm.coEmail    || gv('coEmail')    || 'eventmediap@gmail.com';
+  var coPhone    = snapForm.coPhone    || gv('coPhone')    || '+94 777486548 | +94 752878875';
+  var coAddr     = snapForm.coAddr     || gv('coAddr')     || '485/A, Weera Mw, Depanama, Pannipitiya';
+  var coInstagram = ((snapForm.coInstagram || gv('coInstagram') || '')).trim();
+  var coWebsite   = ((snapForm.coWebsite   || gv('coWebsite')   || '')).trim();
   var coAddrLine = (coAddr || '').replace(/\n/g, ' &middot; ');
-  var accent = gv('colorAccent') || '#e11d48';
+  var accent = (typeof window.accent !== 'undefined' && window.accent) || gv('colorAccent') || gv('accentColor') || '#e11d48';
 
   var logoHtml = LOGO_DATA
     ? '<img src="' + LOGO_DATA + '" style="height:68px;max-width:170px;object-fit:contain;margin-right:12px" alt="Logo">'
