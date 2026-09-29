@@ -2637,25 +2637,35 @@ function viewPaymentReceiptDoc(id) {
 
   var balRemaining = Math.max(0, invTotal - totalPaidToDate);
 
+  var coName = gv('coName') || 'Event Media Production';
+  var coEmail = gv('coEmail') || 'eventmediap@gmail.com';
+  var coPhone = gv('coPhone') || '+94 777486548 | +94 752878875';
+  var coAddr = gv('coAddr') || '485/A, Weera Mw, Depanama, Pannipitiya';
+  var coInstagram = (gv('coInstagram') || '').trim();
+  var coWebsite = (gv('coWebsite') || '').trim();
+  var coAddrLine = (coAddr || '').replace(/\n/g, ' &middot; ');
+  var accent = gv('colorAccent') || '#e11d48';
+
   var logoHtml = LOGO_DATA
-    ? '<img src="' + LOGO_DATA + '" style="height:70px;max-width:180px;object-fit:contain" alt="Event Media Logo">'
-    : '<div style="font-size:24px;font-weight:800;color:var(--accent);letter-spacing:1px">EVENT MEDIA</div>';
+    ? '<img src="' + LOGO_DATA + '" style="height:68px;max-width:170px;object-fit:contain;margin-right:12px" alt="Logo">'
+    : '<div style="font-size:22px;font-weight:800;color:' + accent + ';letter-spacing:0.5px;margin-right:12px">' + esc(coName) + '</div>';
 
   var receiptHtml =
     '<div id="receiptPrintableDoc" class="receipt-doc-paper">' +
       '<div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #e2e8f0;padding-bottom:1.2rem;margin-bottom:1.5rem">' +
-        '<div>' +
+        '<div style="display:flex;align-items:center">' +
           logoHtml +
-          '<div style="font-size:11.5px;color:#64748b;margin-top:6px;line-height:1.4">' +
-            '<strong>Event Media</strong><br>' +
-            'Maharagama, Sri Lanka<br>' +
-            'Tel: +94 77 123 4567 / +94 71 987 6543<br>' +
-            'Email: info@eventmedia.lk · Web: www.eventmedia.lk' +
+          '<div>' +
+            '<div class="doc-company-name" style="color:' + accent + ';font-size:16px;font-weight:800;letter-spacing:0.3px">' + esc(coName) + '</div>' +
+            '<div style="font-size:11.5px;color:#64748b;margin-top:2px">' + esc(coEmail) + ' &nbsp;&middot;&nbsp; ' + esc(coPhone) + '</div>' +
+            ((coInstagram || coWebsite) ?
+              '<div style="font-size:11px;color:#64748b;margin-top:2px">' + [coInstagram, coWebsite].filter(Boolean).map(esc).join(' &nbsp;&middot;&nbsp; ') + '</div>' : '') +
+            '<div style="font-size:11px;color:#64748b;margin-top:2px">' + esc(coAddrLine) + '</div>' +
           '</div>' +
         '</div>' +
         '<div style="text-align:right">' +
           '<div class="receipt-badge">OFFICIAL RECEIPT</div>' +
-          '<div style="font-size:22px;font-weight:800;color:#0f172a;margin-top:4px">' + esc(receipt.receipt_no) + '</div>' +
+          '<div style="font-size:20px;font-weight:800;color:#0f172a;margin-top:4px">' + esc(receipt.receipt_no) + '</div>' +
           '<div style="font-size:12px;color:#64748b;margin-top:2px">Date: <strong>' + managerDate(receipt.payment_date) + '</strong></div>' +
         '</div>' +
       '</div>' +
@@ -2714,13 +2724,13 @@ function viewPaymentReceiptDoc(id) {
 
       '<div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:2.5rem;padding-top:1.5rem;border-top:1px dashed #cbd5e1">' +
         '<div style="font-size:11px;color:#94a3b8;max-width:320px;line-height:1.4">' +
-          'This is a computer-generated official receipt issued by Event Media. For inquiries, please contact info@eventmedia.lk.' +
+          'This is a computer-generated official receipt issued by ' + esc(coName) + '. For inquiries, please contact ' + esc(coEmail) + '.' +
         '</div>' +
         '<div style="text-align:center">' +
           (SIG_SASINDU ? '<img src="' + SIG_SASINDU + '" style="height:48px;max-width:140px;object-fit:contain;margin-bottom:2px" alt="Authorized Signature">' : '<div style="height:48px"></div>') +
           '<div style="border-top:1px solid #475569;width:160px;margin:0 auto"></div>' +
           '<div style="font-size:11.5px;font-weight:700;color:#1e293b;margin-top:4px">Authorized Signature</div>' +
-          '<div style="font-size:10.5px;color:#64748b">Event Media</div>' +
+          '<div style="font-size:10.5px;color:#64748b">' + esc(coName) + '</div>' +
         '</div>' +
       '</div>' +
     '</div>';
