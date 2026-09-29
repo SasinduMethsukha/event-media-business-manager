@@ -413,6 +413,58 @@ create policy "Allow anon read/write" on invoice_payments for all using (true) w
 create index if not exists invoice_payments_ws_invoice on invoice_payments (workspace_id, invoice_id);
 create index if not exists invoice_payments_ws_date on invoice_payments (workspace_id, payment_date);
 
+create table if not exists payment_receipts (
+  id uuid primary key default gen_random_uuid(),
+  workspace_id text not null,
+  receipt_no text not null,
+  payment_date date not null default current_date,
+  customer_id text,
+  client_name text,
+  invoice_id uuid references invoice_documents(id) on delete set null,
+  event_name text,
+  amount numeric not null check (amount > 0),
+  payment_method text not null default 'Bank Transfer',
+  reference_no text,
+  bank_account text,
+  notes text,
+  created_by uuid references auth.users(id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+alter table payment_receipts enable row level security;
+drop policy if exists "Allow anon read/write" on payment_receipts;
+create policy "Allow anon read/write" on payment_receipts for all using (true) with check (true);
+create unique index if not exists payment_receipts_ws_receiptno on payment_receipts (workspace_id, receipt_no);
+create index if not exists payment_receipts_ws_invoice on payment_receipts (workspace_id, invoice_id);
+create index if not exists payment_receipts_ws_customer on payment_receipts (workspace_id, customer_id);
+create index if not exists payment_receipts_ws_date on payment_receipts (workspace_id, payment_date);
+create index if not exists payment_receipts_ws_client on payment_receipts (workspace_id, client_name);
+
+-- Backfill existing invoice_payments into payment_receipts if not yet migrated
+do $$
+begin
+  if exists (select 1 from information_schema.tables where table_schema='public' and table_name='invoice_payments') then
+    insert into payment_receipts (id, workspace_id, receipt_no, payment_date, invoice_id, client_name, event_name, amount, payment_method, reference_no, notes, created_at, updated_at)
+    select
+      ip.id,
+      ip.workspace_id,
+      'PR-' || to_char(ip.payment_date, 'YYYY') || '-' || lpad(row_number() over (partition by ip.workspace_id, to_char(ip.payment_date, 'YYYY') order by ip.created_at)::text, 4, '0'),
+      ip.payment_date,
+      ip.invoice_id,
+      inv.client_name,
+      inv.event_name,
+      ip.amount,
+      coalesce(ip.method, 'Bank Transfer'),
+      ip.reference,
+      ip.notes,
+      ip.created_at,
+      ip.created_at
+    from invoice_payments ip
+    left join invoice_documents inv on inv.id = ip.invoice_id
+    where not exists (select 1 from payment_receipts pr where pr.id = ip.id);
+  end if;
+end $$;
+
 create table if not exists equipment_rentals (
   id uuid primary key default gen_random_uuid(),
   workspace_id text not null,
@@ -488,6 +540,7 @@ grant usage on schema public to anon, authenticated;
 grant select, insert, update, delete on table invoice_app_state to anon, authenticated;
 grant select, insert, update, delete on table invoice_documents to anon, authenticated;
 grant select, insert, update, delete on table invoice_payments to anon, authenticated;
+grant select, insert, update, delete on table payment_receipts to anon, authenticated;
 grant select, insert, update, delete on table equipment_rentals to anon, authenticated;
 grant select, insert, update, delete on table owned_equipment_hires to anon, authenticated;
 grant select, insert, update, delete on table other_expenses to anon, authenticated;
@@ -656,6 +709,7 @@ with check (public.app_is_admin() and workspace_id = public.app_workspace_id());
 drop policy if exists "Allow anon read/write" on invoice_app_state;
 drop policy if exists "Allow anon read/write" on invoice_documents;
 drop policy if exists "Allow anon read/write" on invoice_payments;
+drop policy if exists "Allow anon read/write" on payment_receipts;
 drop policy if exists "Allow anon read/write" on equipment_rentals;
 drop policy if exists "Allow anon read/write" on owned_equipment_hires;
 drop policy if exists "Allow anon read/write" on other_expenses;
@@ -675,6 +729,12 @@ with check (public.app_is_admin() and workspace_id = public.app_workspace_id());
 
 drop policy if exists "admin invoice payments" on invoice_payments;
 create policy "admin invoice payments" on invoice_payments
+for all to authenticated
+using (public.app_is_admin() and workspace_id = public.app_workspace_id())
+with check (public.app_is_admin() and workspace_id = public.app_workspace_id());
+
+drop policy if exists "admin payment receipts" on payment_receipts;
+create policy "admin payment receipts" on payment_receipts
 for all to authenticated
 using (public.app_is_admin() and workspace_id = public.app_workspace_id())
 with check (public.app_is_admin() and workspace_id = public.app_workspace_id());
@@ -759,6 +819,7 @@ grant all privileges on all sequences in schema public to anon, authenticated;
   <div class="manager-tabs">
     <button class="manager-tab active admin-only" id="managerTab-dashboard" onclick="showManagerPane('dashboard')"><i class="ti ti-layout-dashboard"></i> Dashboard</button>
     <button class="manager-tab admin-only" id="managerTab-invoices" class="manager-tab admin-only" onclick="showManagerPane('invoices')"><i class="ti ti-receipt"></i> Invoices</button>
+    <button class="manager-tab admin-only" id="managerTab-payments" class="manager-tab admin-only" onclick="showManagerPane('payments')"><i class="ti ti-receipt-tax"></i> Payment Received</button>
     <button class="manager-tab" id="managerTab-rentals" onclick="showManagerPane('rentals')"><i class="ti ti-truck-delivery"></i> Supplier Rentals</button>
     <button class="manager-tab" id="managerTab-equipmenthire" onclick="showManagerPane('equipmenthire')"><i class="ti ti-package-export"></i> Equipment Hire</button>
     <button class="manager-tab admin-only" id="managerTab-finance" class="manager-tab admin-only" onclick="showManagerPane('finance')"><i class="ti ti-coins"></i> Finance</button>
@@ -781,6 +842,38 @@ grant all privileges on all sequences in schema public to anon, authenticated;
     <div class="manager-card">
       <div class="manager-card-head"><div class="manager-card-title">Invoice tracker</div><div class="manager-filterbar"><input id="managerInvoiceSearch" placeholder="Search invoice, client or event" oninput="renderManagerInvoices()"><select id="managerInvoiceStatus" onchange="renderManagerInvoices()"><option value="all">All statuses</option><option value="unpaid">Unpaid</option><option value="partial">Partially paid</option><option value="paid">Paid</option><option value="overdue">Overdue</option></select></div></div>
       <div id="managerInvoiceTable"></div>
+    </div>
+  </div>
+
+  <div id="managerPane-payments" style="display:none">
+    <div class="manager-card">
+      <div class="manager-card-head">
+        <div>
+          <div class="manager-card-title">Payment Received register</div>
+          <div style="font-size:11.5px;color:var(--text3);margin-top:2px">Official customer payment receipts linked to invoices and cash-flow history.</div>
+        </div>
+        <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">
+          <button class="btn btn-primary" onclick="openPaymentReceiptModal()"><i class="ti ti-plus"></i> Record Payment Received</button>
+        </div>
+      </div>
+      <div class="manager-card-body">
+        <div class="manager-grid" id="managerPaymentMetrics"></div>
+        <div class="manager-filterbar" style="margin-bottom:1rem">
+          <input id="managerPaymentSearch" placeholder="Search receipt #, customer, invoice or reference" oninput="renderPaymentReceipts()">
+          <select id="managerPaymentMethodFilter" onchange="renderPaymentReceipts()">
+            <option value="all">All payment methods</option>
+            <option>Bank Transfer</option>
+            <option>Cash</option>
+            <option>Card</option>
+            <option>Cheque</option>
+            <option>Other</option>
+          </select>
+          <select id="managerPaymentCustomerFilter" onchange="renderPaymentReceipts()">
+            <option value="all">All customers</option>
+          </select>
+        </div>
+        <div id="managerPaymentTable"></div>
+      </div>
     </div>
   </div>
 
@@ -912,7 +1005,8 @@ grant all privileges on all sequences in schema public to anon, authenticated;
         <div class="db-viewer-toolbar">
           <select id="dbViewerTable" onchange="loadDatabaseViewer()">
             <option value="invoice_documents">Invoices / Documents</option>
-            <option value="invoice_payments">Invoice Payments</option>
+            <option value="payment_receipts">Payment Receipts</option>
+            <option value="invoice_payments">Invoice Payments (Legacy)</option>
             <option value="equipment_rentals">Supplier Rentals</option>
             <option value="owned_equipment_hires">Our Equipment Hire Income</option>
             <option value="other_expenses">Other Expenses</option>
@@ -960,8 +1054,8 @@ grant all privileges on all sequences in schema public to anon, authenticated;
       <div class="manager-card">
         <div class="manager-card-head"><div><div class="manager-card-title">Access rules</div><div style="font-size:11.5px;color:var(--text3);margin-top:2px">Permissions are enforced by Supabase RLS. Role/disable changes are sent through a protected server-side Edge Function.</div></div></div>
         <div class="manager-card-body" style="font-size:12.5px;color:var(--text2);line-height:1.75">
-          <strong style="color:var(--text)">Admin:</strong> Invoice Generator, Dashboard, Invoices, Supplier Rentals, Equipment Hire, Finance, Reports, Database, Admin and Profiles.<br>
-          <strong style="color:var(--text)">Employee:</strong> Sign-in only. Supplier Rentals and Equipment Hire only. No account creation, invoice, finance, report, database or admin access.
+          <strong style="color:var(--text)">Admin:</strong> Invoice Generator, Dashboard, Invoices, Payment Received, Supplier Rentals, Equipment Hire, Finance, Reports, Database, Admin and Profiles.<br>
+          <strong style="color:var(--text)">Employee:</strong> Sign-in only. Supplier Rentals and Equipment Hire only. No account creation, invoice, payment, finance, report, database or admin access.
         </div>
       </div>
     </div>
@@ -981,7 +1075,8 @@ grant all privileges on all sequences in schema public to anon, authenticated;
         <div class="db-viewer-toolbar">
           <select id="adminTable" onchange="loadAdminTable()">
             <option value="invoice_documents">Invoices / Documents</option>
-            <option value="invoice_payments">Invoice Payments</option>
+            <option value="payment_receipts">Payment Receipts</option>
+            <option value="invoice_payments">Invoice Payments (Legacy)</option>
             <option value="equipment_rentals">Supplier Rentals</option>
             <option value="owned_equipment_hires">Our Equipment Hire Income</option>
             <option value="other_expenses">Other Expenses</option>
@@ -1009,6 +1104,136 @@ grant all privileges on all sequences in schema public to anon, authenticated;
   </div>
 </section>
 
+<!-- Dedicated Payment Received Form Modal -->
+<div id="paymentReceiptModal" class="manager-modal" onclick="if(event.target===this)closePaymentReceiptModal()">
+  <div class="manager-modal-box" style="max-width:680px">
+    <div class="manager-modal-head">
+      <div>
+        <div class="manager-modal-title" id="paymentReceiptModalTitle">Record Payment Received</div>
+        <div class="db-meta" id="paymentReceiptModalSub">Create a verified payment receipt against a customer invoice.</div>
+      </div>
+      <button class="btn-icon" onclick="closePaymentReceiptModal()"><i class="ti ti-x"></i></button>
+    </div>
+    <input type="hidden" id="paymentReceiptEditId">
+    <div class="manager-form" style="grid-template-columns:1fr 1fr;gap:.75rem">
+      <div>
+        <label>Receipt Number *</label>
+        <div style="display:flex;gap:4px">
+          <input id="paymentReceiptDocNum" placeholder="PR-2026-0001" style="font-weight:700">
+          <button type="button" class="btn btn-sm" onclick="regenerateReceiptNumber()" title="Generate next number"><i class="ti ti-refresh"></i></button>
+        </div>
+      </div>
+      <div>
+        <label>Payment Date *</label>
+        <input id="paymentReceiptDate" type="date">
+      </div>
+      <div>
+        <label>Customer *</label>
+        <select id="paymentReceiptCustomer" onchange="onPaymentReceiptCustomerChange()">
+          <option value="">Select customer...</option>
+        </select>
+      </div>
+      <div>
+        <label>Against Invoice *</label>
+        <select id="paymentReceiptInvoice" onchange="onPaymentReceiptInvoiceChange()">
+          <option value="">Select invoice...</option>
+        </select>
+      </div>
+      <div class="wide2">
+        <label>Event / Project</label>
+        <input id="paymentReceiptEvent" placeholder="Event / project name">
+      </div>
+      <div class="wide2">
+        <div class="receipt-balance-cards">
+          <div class="receipt-balance-card">
+            <div class="balance-card-label">Invoice Total</div>
+            <div class="balance-card-val" id="receiptCardTotal">Rs. 0.00</div>
+          </div>
+          <div class="receipt-balance-card">
+            <div class="balance-card-label">Previously Received</div>
+            <div class="balance-card-val" id="receiptCardPaid">Rs. 0.00</div>
+          </div>
+          <div class="receipt-balance-card highlight">
+            <div class="balance-card-label">Outstanding Balance</div>
+            <div class="balance-card-val" id="receiptCardBalance">Rs. 0.00</div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <label>Amount Received (LKR) *</label>
+        <input id="paymentReceiptAmount" type="number" min="0.01" step="0.01" placeholder="0.00" oninput="onPaymentReceiptAmountInput()" style="font-size:15px;font-weight:700">
+      </div>
+      <div>
+        <label>Payment Method *</label>
+        <select id="paymentReceiptMethod" onchange="onPaymentReceiptMethodChange()">
+          <option>Bank Transfer</option>
+          <option>Cash</option>
+          <option>Card</option>
+          <option>Cheque</option>
+          <option>Other</option>
+        </select>
+      </div>
+      <div class="wide2" id="paymentReceiptOverpayAlert" style="display:none"></div>
+      <div>
+        <label>Transaction / Reference Number</label>
+        <input id="paymentReceiptReference" placeholder="e.g. TXN123456 / Cheque No.">
+      </div>
+      <div>
+        <label>Bank / Account</label>
+        <input id="paymentReceiptBank" placeholder="e.g. Seylan Bank, Maharagama">
+      </div>
+      <div class="wide2">
+        <label>Notes / Remarks</label>
+        <textarea id="paymentReceiptNotes" placeholder="Payment received with thanks / special terms..."></textarea>
+      </div>
+    </div>
+    <div style="display:flex;justify-content:flex-end;gap:.5rem;margin-top:1rem;border-top:1px solid var(--border);padding-top:.8rem">
+      <button class="btn" onclick="closePaymentReceiptModal()">Cancel</button>
+      <button class="btn btn-primary" id="savePaymentReceiptBtn" onclick="savePaymentReceipt()"><i class="ti ti-device-floppy"></i> Save Payment Received</button>
+    </div>
+  </div>
+</div>
+
+<!-- Printable / PDF Payment Receipt Document Viewer Modal -->
+<div id="receiptDocModal" class="manager-modal" onclick="if(event.target===this)closeReceiptDocModal()">
+  <div class="manager-modal-box" style="max-width:780px;padding:0;background:transparent;box-shadow:none;border:none">
+    <div class="receipt-viewer-toolbar">
+      <div style="display:flex;align-items:center;gap:8px">
+        <i class="ti ti-receipt-tax" style="font-size:18px;color:#fff"></i>
+        <strong style="color:#fff;font-size:14px" id="receiptDocToolbarTitle">Payment Receipt</strong>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center">
+        <button class="btn btn-sm btn-primary" onclick="printPaymentReceipt()"><i class="ti ti-printer"></i> Print</button>
+        <button class="btn btn-sm btn-info" id="receiptPdfBtn" onclick="downloadPaymentReceiptPDF()"><i class="ti ti-file-type-pdf"></i> PDF</button>
+        <button class="btn btn-sm" onclick="downloadPaymentReceiptPNG()"><i class="ti ti-photo-down"></i> PNG</button>
+        <button class="btn btn-sm" onclick="closeReceiptDocModal()"><i class="ti ti-x"></i> Close</button>
+      </div>
+    </div>
+    <div id="receiptDocContainer" style="overflow-y:auto;max-height:calc(90vh - 60px);display:flex;justify-content:center;padding:10px 0">
+      <!-- Dynamic Receipt Document HTML rendered here -->
+    </div>
+  </div>
+</div>
+
+<!-- Invoice Payment History Modal -->
+<div id="invoiceHistoryModal" class="manager-modal" onclick="if(event.target===this)closeInvoiceHistoryModal()">
+  <div class="manager-modal-box" style="max-width:740px">
+    <div class="manager-modal-head">
+      <div>
+        <div class="manager-modal-title" id="invoiceHistoryTitle">Invoice Payment History</div>
+        <div class="db-meta" id="invoiceHistorySub">Breakdown of all payments received against this invoice.</div>
+      </div>
+      <button class="btn-icon" onclick="closeInvoiceHistoryModal()"><i class="ti ti-x"></i></button>
+    </div>
+    <div id="invoiceHistoryBody"></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:1rem;padding-top:.8rem;border-top:1px solid var(--border)">
+      <button class="btn btn-primary" id="invoiceHistoryAddPaymentBtn" onclick="openPaymentFromHistory()"><i class="ti ti-plus"></i> Add Payment</button>
+      <button class="btn" onclick="closeInvoiceHistoryModal()">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Legacy Payment Modal wrapper to maintain backwards compatibility -->
 <div id="paymentModal" class="manager-modal" onclick="if(event.target===this)closePaymentModal()">
   <div class="manager-modal-box">
     <div class="manager-modal-head"><div class="manager-modal-title">Record invoice payment</div><button class="btn-icon" onclick="closePaymentModal()"><i class="ti ti-x"></i></button></div>

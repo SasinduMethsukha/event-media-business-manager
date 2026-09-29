@@ -216,7 +216,8 @@ var DOC_PREFIXES = {
   'Invoice': '',
   'Proforma Invoice': 'PRO',
   'Purchase Order': 'PO',
-  'Credit Note': 'CN'
+  'Credit Note': 'CN',
+  'Payment Received': 'PR'
 };
 var DOC_PERIOD_MODE = { 'Invoice': 'month' }; // anything not listed here uses 'year'
 // One-time bootstrap so numbering continues correctly from what's already
@@ -225,11 +226,13 @@ var DOC_PERIOD_MODE = { 'Invoice': 'month' }; // anything not listed here uses '
 // counter (local or cloud) takes over. Safe to leave in place indefinitely.
 var SEED_FLOORS = {
   'Quotation:2026': 227,
-  'Invoice:202607': 8
+  'Invoice:202607': 8,
+  'Payment Received:2026': 0
 };
 function docPrefix(type) { return (type in DOC_PREFIXES) ? DOC_PREFIXES[type] : 'DOC'; }
 function formatDocNumber(prefix, period, n) {
-  return (prefix ? prefix + '-' : '') + period + '-' + String(n).padStart(3, '0');
+  var digits = (prefix === 'PR') ? 4 : 3;
+  return (prefix ? prefix + '-' : '') + period + '-' + String(n).padStart(digits, '0');
 }
 function docPeriod(type) {
   var now = new Date();
@@ -250,16 +253,20 @@ function localFloor(type) {
 }
 async function cloudMaxSeq(type, prefix, period) {
   var pattern = (prefix ? prefix + '-' : '') + period + '-';
-  var url = sbBase() + '/rest/v1/invoice_documents' +
+  var isReceipt = (type === 'Payment Received' || prefix === 'PR');
+  var table = isReceipt ? 'payment_receipts' : 'invoice_documents';
+  var col = isReceipt ? 'receipt_no' : 'doc_number';
+  var url = sbBase() + '/rest/v1/' + table +
     '?workspace_id=eq.' + encodeURIComponent(gv('sbWorkspace').trim()) +
-    '&doc_number=like.' + encodeURIComponent(pattern + '*') +
-    '&select=doc_number&limit=1000';
+    '&' + col + '=like.' + encodeURIComponent(pattern + '*') +
+    '&select=' + col + '&limit=1000';
   var r = await fetch(url, { headers: sbHeaders(gv('sbKey').trim()) });
   if (!r.ok) throw new Error('HTTP ' + r.status);
   var rows = await r.json();
   var max = 0;
   rows.forEach(function(row) {
-    var m = row.doc_number && row.doc_number.match(/-(\d+)$/);
+    var val = row[col];
+    var m = val && val.match(/-(\d+)$/);
     if (m) { var v = parseInt(m[1], 10); if (v > max) max = v; }
   });
   return max;
@@ -280,6 +287,9 @@ async function generateDocNumber(type, commit) {
     try { localStorage.setItem(docSeqKey(type), String(n)); } catch (e) {}
   }
   return formatDocNumber(prefix, period, n);
+}
+async function generateReceiptNumber(commit) {
+  return generateDocNumber('Payment Received', commit);
 }
 async function regenerateDocNum() {
   var el = document.getElementById('docNum');
@@ -1999,7 +2009,7 @@ async function toggleProfileActive(uid,active){
 
 
 // ── BUSINESS MANAGER ──
-var managerState = { invoices: [], payments: [], rentals: [], equipmentHires: [], expenses: [], dbRows: [], dbTable: 'invoice_documents', adminRows: [], adminTable: 'invoice_documents' };
+var managerState = { invoices: [], payments: [], paymentReceipts: [], rentals: [], equipmentHires: [], expenses: [], dbRows: [], dbTable: 'invoice_documents', adminRows: [], adminTable: 'invoice_documents' };
 var MANAGER_SQL = document.getElementById('supabaseSqlCode') ? document.getElementById('supabaseSqlCode').textContent : '';
 
 function openManager() {
@@ -2016,11 +2026,12 @@ function closeManager() {
 }
 function showManagerPane(name) {
   if(!isProfileAdmin() && ['rentals','equipmenthire'].indexOf(name)<0){ name='rentals'; }
-  ['dashboard','invoices','rentals','equipmenthire','finance','reports','database','profiles','admin','setup'].forEach(function(x){
+  ['dashboard','invoices','payments','rentals','equipmenthire','finance','reports','database','profiles','admin','setup'].forEach(function(x){
     var pane=document.getElementById('managerPane-'+x), tab=document.getElementById('managerTab-'+x);
     if (pane) pane.style.display = x===name ? '' : 'none';
     if (tab) tab.classList.toggle('active',x===name);
   });
+  if (name==='payments') renderPaymentReceipts();
   if (name==='equipmenthire') renderEquipmentHires();
   if (name==='finance') renderFinance();
   if (name==='reports') renderReports();
@@ -2032,8 +2043,15 @@ function managerMoney(n, sym) { return (sym || 'Rs. ') + Number(n||0).toLocaleSt
 function managerDate(v) { if (!v) return '—'; try { return new Date(v+'T00:00:00').toLocaleDateString('en-GB'); } catch(e){ return v; } }
 function managerToday() { return new Date().toISOString().slice(0,10); }
 function invoicePaidAmount(inv) {
-  var fromRows = managerState.payments.filter(function(p){ return p.invoice_id===inv.id; }).reduce(function(a,p){return a+Number(p.amount||0);},0);
-  return Math.max(Number(inv.amount_paid||0), fromRows);
+  var receipts = (managerState.paymentReceipts || []).filter(function(p){ return p.invoice_id===inv.id; });
+  if (receipts.length > 0) {
+    return receipts.reduce(function(a,p){ return a + Number(p.amount||0); }, 0);
+  }
+  var legacy = (managerState.payments || []).filter(function(p){ return p.invoice_id===inv.id; });
+  if (legacy.length > 0) {
+    return legacy.reduce(function(a,p){ return a + Number(p.amount||0); }, 0);
+  }
+  return Number(inv.amount_paid || 0);
 }
 function invoiceStatus(inv) {
   var total=Number(inv.grand_total||0), paid=invoicePaidAmount(inv);
@@ -2060,7 +2078,7 @@ async function loadManagerData() {
   var alertBox=document.getElementById('managerConnectionAlert');
   if (!sbConfigured()) {
     if(alertBox) alertBox.innerHTML='<div class="manager-alert"><strong>Supabase is not connected.</strong> Enter the Project URL, anon key and Workspace ID on the Admin browser first.</div>';
-    managerState={invoices:[],payments:[],rentals:[],equipmentHires:[],expenses:[]}; renderManagerAll(); return;
+    managerState={invoices:[],payments:[],paymentReceipts:[],rentals:[],equipmentHires:[],expenses:[]}; renderManagerAll(); return;
   }
   if(!PROFILE_CURRENT||!PROFILE_CURRENT.active){if(alertBox)alertBox.innerHTML='<div class="manager-alert"><strong>Profile login required.</strong></div>';return;}
   if(alertBox) alertBox.innerHTML='<div class="manager-alert" style="color:var(--text2);background:var(--surface);border-color:var(--border)"><i class="ti ti-loader"></i> Loading permitted business data from Supabase...</div>';
@@ -2068,19 +2086,24 @@ async function loadManagerData() {
     if(isProfileAdmin()){
       var results=await Promise.all([
         managerGet('invoice_documents','id,doc_number,doc_type,client_name,event_name,grand_total,currency,issue_date,due_date,payment_status,amount_paid,created_at,updated_at'),
-        managerGet('invoice_payments','id,invoice_id,amount,payment_date,method,reference,notes,created_at'),
+        managerGet('invoice_payments','id,invoice_id,amount,payment_date,method,reference,notes,created_at').catch(function(){ return []; }),
+        managerGet('payment_receipts','id,receipt_no,payment_date,customer_id,client_name,invoice_id,event_name,amount,payment_method,reference_no,bank_account,notes,created_by,created_at,updated_at').catch(function(){ return []; }),
         managerGet('equipment_rentals','id,supplier_name,supplier_contact,event_name,item_description,quantity,rent_date,return_date,amount,amount_paid,status,notes,created_at,updated_at'),
         managerGet('owned_equipment_hires','id,customer_name,customer_contact,event_name,item_description,quantity,hire_date,return_date,amount,amount_paid,payment_status,hire_status,payment_method,reference,notes,created_at,updated_at'),
         managerGet('other_expenses','id,expense_date,category,description,event_name,amount,payment_method,reference,notes,created_at,updated_at')
       ]);
       managerState.invoices=results[0].filter(function(x){return x.doc_type==='Invoice'||x.doc_type==='Proforma Invoice';});
-      managerState.payments=results[1];managerState.rentals=results[2];managerState.equipmentHires=results[3];managerState.expenses=results[4];
+      managerState.payments=results[1]||[];
+      managerState.paymentReceipts=results[2]||[];
+      managerState.rentals=results[3]||[];
+      managerState.equipmentHires=results[4]||[];
+      managerState.expenses=results[5]||[];
     }else{
       var staff=await Promise.all([
         managerGet('equipment_rentals','id,supplier_name,supplier_contact,event_name,item_description,quantity,rent_date,return_date,amount,amount_paid,status,notes,created_at,updated_at'),
         managerGet('owned_equipment_hires','id,customer_name,customer_contact,event_name,item_description,quantity,hire_date,return_date,amount,amount_paid,payment_status,hire_status,payment_method,reference,notes,created_at,updated_at')
       ]);
-      managerState.invoices=[];managerState.payments=[];managerState.rentals=staff[0];managerState.equipmentHires=staff[1];managerState.expenses=[];
+      managerState.invoices=[];managerState.payments=[];managerState.paymentReceipts=[];managerState.rentals=staff[0]||[];managerState.equipmentHires=staff[1]||[];managerState.expenses=[];
     }
     if(alertBox) alertBox.innerHTML='';
     renderManagerAll();
@@ -2090,7 +2113,7 @@ async function loadManagerData() {
     renderManagerAll();
   }
 }
-function renderManagerAll(){ renderManagerDashboard(); renderManagerInvoices(); renderRentals(); renderEquipmentHires(); renderFinance(); renderExpenses(); renderReports(); }
+function renderManagerAll(){ renderManagerDashboard(); renderManagerInvoices(); renderPaymentReceipts(); renderRentals(); renderEquipmentHires(); renderFinance(); renderExpenses(); renderReports(); }
 function renderManagerDashboard(){
   var invs=managerState.invoices, rentals=managerState.rentals;
   var billed=invs.reduce(function(a,x){return a+Number(x.grand_total||0);},0);
@@ -2102,7 +2125,7 @@ function renderManagerDashboard(){
   var overdue=invs.filter(function(x){return invoiceStatus(x)==='overdue';}).length;
   var metrics=document.getElementById('managerMetrics'); if(metrics) metrics.innerHTML=
     '<div class="metric-card"><div class="metric-label">Total invoiced</div><div class="metric-value">'+managerMoney(billed)+'</div><div class="metric-note">'+invs.length+' invoice(s)</div></div>'+ 
-    '<div class="metric-card"><div class="metric-label">Collected</div><div class="metric-value">'+managerMoney(collected)+'</div><div class="metric-note">Recorded payments</div></div>'+ 
+    '<div class="metric-card"><div class="metric-label">Collected</div><div class="metric-value">'+managerMoney(collected)+'</div><div class="metric-note">'+(managerState.paymentReceipts.length || managerState.payments.length)+' payment receipt(s)</div></div>'+ 
     '<div class="metric-card"><div class="metric-label">Outstanding</div><div class="metric-value">'+managerMoney(outstanding)+'</div><div class="metric-note">'+overdue+' overdue invoice(s)</div></div>'+ 
     '<div class="metric-card"><div class="metric-label">Supplier rental cost</div><div class="metric-value">'+managerMoney(rentalCost)+'</div><div class="metric-note">'+rentals.length+' rental record(s)</div></div>'+ '<div class="metric-card"><div class="metric-label">Our Equipment Hire Income</div><div class="metric-value">'+managerMoney(hireRevenue)+'</div><div class="metric-note">'+managerMoney(hireReceived)+' received</div></div>';
   var out=invs.filter(function(x){return invoiceStatus(x)!=='paid';}).sort(function(a,b){return String(a.due_date||'9999').localeCompare(String(b.due_date||'9999'));}).slice(0,6);
@@ -2115,29 +2138,735 @@ function renderManagerInvoices(){
   var q=(gv('managerInvoiceSearch')||'').toLowerCase(), fs=gv('managerInvoiceStatus')||'all';
   var rows=managerState.invoices.filter(function(x){var st=invoiceStatus(x);var hay=[x.doc_number,x.client_name,x.event_name].join(' ').toLowerCase();return (!q||hay.indexOf(q)>=0)&&(fs==='all'||st===fs);}).sort(function(a,b){return String(b.issue_date||b.created_at||'').localeCompare(String(a.issue_date||a.created_at||''));});
   if(!rows.length){wrap.innerHTML='<div class="manager-empty">No invoices match this filter. Save an Invoice from the generator and it will appear here.</div>';return;}
-  wrap.innerHTML='<div class="manager-table-wrap"><table class="manager-table"><thead><tr><th>Invoice</th><th>Client / Event</th><th>Issued</th><th>Due</th><th>Total</th><th>Paid</th><th>Balance</th><th>Status</th><th>Actions</th></tr></thead><tbody>'+rows.map(function(x){var paid=invoicePaidAmount(x),total=Number(x.grand_total||0),bal=Math.max(0,total-paid);return '<tr><td><strong>'+esc(x.doc_number)+'</strong></td><td>'+esc(x.client_name||'—')+(x.event_name?'<div style="font-size:11px;color:var(--text3)">'+esc(x.event_name)+'</div>':'')+'</td><td>'+managerDate(x.issue_date)+'</td><td>'+managerDate(x.due_date)+'</td><td class="manager-money">'+managerMoney(total,x.currency)+'</td><td class="manager-money">'+managerMoney(paid,x.currency)+'</td><td class="manager-money">'+managerMoney(bal,x.currency)+'</td><td>'+statusBadge(invoiceStatus(x))+'</td><td style="white-space:nowrap"><button class="btn btn-sm btn-primary" onclick="openPaymentModal(\''+x.id+'\')"><i class="ti ti-cash"></i> Payment</button> <button class="btn btn-sm" onclick="loadManagerInvoice(\''+x.id+'\')"><i class="ti ti-folder-open"></i> Open</button></td></tr>';}).join('')+'</tbody></table></div>';
+  wrap.innerHTML='<div class="manager-table-wrap"><table class="manager-table"><thead><tr><th>Invoice</th><th>Client / Event</th><th>Issued</th><th>Due</th><th>Total</th><th>Paid</th><th>Balance</th><th>Status</th><th>Actions</th></tr></thead><tbody>'+rows.map(function(x){var paid=invoicePaidAmount(x),total=Number(x.grand_total||0),bal=Math.max(0,total-paid);var payCount=(managerState.paymentReceipts||[]).filter(function(p){return p.invoice_id===x.id;}).length;return '<tr><td><strong>'+esc(x.doc_number)+'</strong></td><td>'+esc(x.client_name||'—')+(x.event_name?'<div style="font-size:11px;color:var(--text3)">'+esc(x.event_name)+'</div>':'')+'</td><td>'+managerDate(x.issue_date)+'</td><td>'+managerDate(x.due_date)+'</td><td class="manager-money">'+managerMoney(total,x.currency)+'</td><td class="manager-money">'+managerMoney(paid,x.currency)+'</td><td class="manager-money">'+managerMoney(bal,x.currency)+'</td><td>'+statusBadge(invoiceStatus(x))+'</td><td style="white-space:nowrap"><button class="btn btn-sm btn-primary" onclick="openPaymentReceiptModal({invoiceId:\''+x.id+'\'})" title="Record Payment Received"><i class="ti ti-plus"></i> Payment</button> <button class="btn btn-sm" onclick="openInvoiceHistory(\''+x.id+'\')" title="View Payment History"><i class="ti ti-history"></i> History '+(payCount?'('+payCount+')':'')+'</button> <button class="btn btn-sm" onclick="loadManagerInvoice(\''+x.id+'\')"><i class="ti ti-folder-open"></i> Open</button></td></tr>';}).join('')+'</tbody></table></div>';
 }
 async function loadManagerInvoice(id){ closeManager(); await loadSavedDoc(id); }
+// ── PAYMENT RECEIVED & RECEIPT MANAGEMENT ──
+function populatePaymentCustomerDropdown() {
+  var custSelect = document.getElementById('paymentReceiptCustomer');
+  var filterSelect = document.getElementById('managerPaymentCustomerFilter');
+  var customers = {};
+  (managerState.invoices || []).forEach(function(x) {
+    if (x.client_name && x.client_name.trim()) customers[x.client_name.trim()] = true;
+  });
+  (managerState.paymentReceipts || []).forEach(function(x) {
+    if (x.client_name && x.client_name.trim()) customers[x.client_name.trim()] = true;
+  });
+  var sortedCusts = Object.keys(customers).sort(function(a, b) { return a.localeCompare(b); });
+  
+  if (custSelect) {
+    var cur = custSelect.value;
+    custSelect.innerHTML = '<option value="">Select customer...</option>' + sortedCusts.map(function(c) {
+      return '<option value="' + esc(c) + '">' + esc(c) + '</option>';
+    }).join('');
+    if (cur && customers[cur]) custSelect.value = cur;
+  }
+  if (filterSelect) {
+    var curF = filterSelect.value;
+    filterSelect.innerHTML = '<option value="all">All customers</option>' + sortedCusts.map(function(c) {
+      return '<option value="' + esc(c) + '">' + esc(c) + '</option>';
+    }).join('');
+    if (curF) filterSelect.value = curF;
+  }
+}
+
+function populatePaymentInvoiceDropdown(selectedCustomerId, selectedInvoiceId) {
+  var invSelect = document.getElementById('paymentReceiptInvoice');
+  if (!invSelect) return;
+  var invoices = (managerState.invoices || []).slice();
+  if (selectedCustomerId) {
+    invoices = invoices.filter(function(x) {
+      return (x.client_name || '').trim().toLowerCase() === selectedCustomerId.trim().toLowerCase();
+    });
+  }
+  invoices.sort(function(a, b) {
+    var stA = invoiceStatus(a), stB = invoiceStatus(b);
+    var priA = (stA === 'unpaid' ? 1 : (stA === 'partial' || stA === 'overdue' ? 2 : 3));
+    var priB = (stB === 'unpaid' ? 1 : (stB === 'partial' || stB === 'overdue' ? 2 : 3));
+    if (priA !== priB) return priA - priB;
+    return String(b.issue_date || b.created_at || '').localeCompare(String(a.issue_date || a.created_at || ''));
+  });
+
+  invSelect.innerHTML = '<option value="">Select invoice...</option>' + invoices.map(function(x) {
+    var paid = invoicePaidAmount(x);
+    var total = Number(x.grand_total || 0);
+    var bal = Math.max(0, total - paid);
+    var st = invoiceStatus(x);
+    var label = esc(x.doc_number) + ' — ' + esc(x.client_name || 'Client') + ' (Total: ' + managerMoney(total, x.currency) + ', Bal: ' + managerMoney(bal, x.currency) + ' [' + st.toUpperCase() + '])';
+    return '<option value="' + esc(x.id) + '">' + label + '</option>';
+  }).join('');
+
+  if (selectedInvoiceId) {
+    invSelect.value = selectedInvoiceId;
+  }
+}
+
+async function regenerateReceiptNumber() {
+  var docInput = document.getElementById('paymentReceiptDocNum');
+  if (!docInput) return;
+  var prev = docInput.value;
+  docInput.value = '…';
+  try {
+    docInput.value = await generateReceiptNumber(false);
+  } catch (e) {
+    console.error(e);
+    docInput.value = prev || ('PR-' + new Date().getFullYear() + '-0001');
+  }
+}
+
+async function openPaymentReceiptModal(opts) {
+  opts = opts || {};
+  var editId = opts.receiptId || null;
+  var preInvoiceId = opts.invoiceId || null;
+
+  document.getElementById('paymentReceiptEditId').value = editId || '';
+  document.getElementById('paymentReceiptDate').value = managerToday();
+  document.getElementById('paymentReceiptMethod').value = 'Bank Transfer';
+  document.getElementById('paymentReceiptReference').value = '';
+  document.getElementById('paymentReceiptBank').value = 'Seylan Bank, Maharagama A/C 0080 3485 3012 001';
+  document.getElementById('paymentReceiptNotes').value = '';
+  document.getElementById('paymentReceiptAmount').value = '';
+  document.getElementById('paymentReceiptEvent').value = '';
+  var alertBox = document.getElementById('paymentReceiptOverpayAlert');
+  if (alertBox) alertBox.style.display = 'none';
+
+  populatePaymentCustomerDropdown();
+
+  if (editId) {
+    var receipt = (managerState.paymentReceipts || []).find(function(r) { return r.id === editId; });
+    if (!receipt) { alert('Receipt not found.'); return; }
+    document.getElementById('paymentReceiptModalTitle').textContent = 'Edit Payment Received';
+    document.getElementById('paymentReceiptModalSub').textContent = 'Update recorded receipt details and synchronize invoice balance.';
+    document.getElementById('savePaymentReceiptBtn').innerHTML = '<i class="ti ti-device-floppy"></i> Update Payment Received';
+
+    document.getElementById('paymentReceiptDocNum').value = receipt.receipt_no || '';
+    document.getElementById('paymentReceiptDate').value = receipt.payment_date || managerToday();
+    document.getElementById('paymentReceiptCustomer').value = receipt.client_name || '';
+    populatePaymentInvoiceDropdown(receipt.client_name || '', receipt.invoice_id);
+    document.getElementById('paymentReceiptInvoice').value = receipt.invoice_id || '';
+    document.getElementById('paymentReceiptEvent').value = receipt.event_name || '';
+    document.getElementById('paymentReceiptAmount').value = Number(receipt.amount || 0).toFixed(2);
+    document.getElementById('paymentReceiptMethod').value = receipt.payment_method || 'Bank Transfer';
+    document.getElementById('paymentReceiptReference').value = receipt.reference_no || '';
+    document.getElementById('paymentReceiptBank').value = receipt.bank_account || '';
+    document.getElementById('paymentReceiptNotes').value = receipt.notes || '';
+
+    updateReceiptBalanceCards();
+  } else {
+    document.getElementById('paymentReceiptModalTitle').textContent = 'Record Payment Received';
+    document.getElementById('paymentReceiptModalSub').textContent = 'Create a verified payment receipt against a customer invoice.';
+    document.getElementById('savePaymentReceiptBtn').innerHTML = '<i class="ti ti-device-floppy"></i> Save Payment Received';
+
+    await regenerateReceiptNumber();
+
+    if (preInvoiceId) {
+      var inv = (managerState.invoices || []).find(function(x) { return x.id === preInvoiceId; });
+      if (inv) {
+        document.getElementById('paymentReceiptCustomer').value = inv.client_name || '';
+        populatePaymentInvoiceDropdown(inv.client_name || '', preInvoiceId);
+        document.getElementById('paymentReceiptInvoice').value = preInvoiceId;
+        document.getElementById('paymentReceiptEvent').value = inv.event_name || '';
+        updateReceiptBalanceCards();
+      } else {
+        populatePaymentInvoiceDropdown();
+      }
+    } else {
+      populatePaymentInvoiceDropdown();
+      updateReceiptBalanceCards();
+    }
+  }
+
+  document.getElementById('paymentReceiptModal').classList.add('open');
+}
+
+function closePaymentReceiptModal() {
+  document.getElementById('paymentReceiptModal').classList.remove('open');
+}
+
+function onPaymentReceiptCustomerChange() {
+  var cust = gv('paymentReceiptCustomer').trim();
+  populatePaymentInvoiceDropdown(cust);
+  var invSelect = document.getElementById('paymentReceiptInvoice');
+  if (invSelect && invSelect.options.length === 2) {
+    invSelect.selectedIndex = 1;
+  }
+  onPaymentReceiptInvoiceChange();
+}
+
+function onPaymentReceiptInvoiceChange() {
+  var invId = gv('paymentReceiptInvoice');
+  var inv = (managerState.invoices || []).find(function(x) { return x.id === invId; });
+  if (inv) {
+    if (!gv('paymentReceiptCustomer')) {
+      document.getElementById('paymentReceiptCustomer').value = inv.client_name || '';
+    }
+    if (!gv('paymentReceiptEvent') || gv('paymentReceiptEvent') !== inv.event_name) {
+      document.getElementById('paymentReceiptEvent').value = inv.event_name || '';
+    }
+  }
+  updateReceiptBalanceCards();
+}
+
+function updateReceiptBalanceCards() {
+  var invId = gv('paymentReceiptInvoice');
+  var editId = gv('paymentReceiptEditId');
+  var totalEl = document.getElementById('receiptCardTotal');
+  var paidEl = document.getElementById('receiptCardPaid');
+  var balEl = document.getElementById('receiptCardBalance');
+  if (!totalEl || !paidEl || !balEl) return;
+
+  var inv = (managerState.invoices || []).find(function(x) { return x.id === invId; });
+  if (!inv) {
+    totalEl.textContent = 'Rs. 0.00';
+    paidEl.textContent = 'Rs. 0.00';
+    balEl.textContent = 'Rs. 0.00';
+    return;
+  }
+
+  var invTotal = Number(inv.grand_total || 0);
+  var receipts = (managerState.paymentReceipts || []).filter(function(r) {
+    return r.invoice_id === invId && (!editId || r.id !== editId);
+  });
+  var prevPaid = receipts.reduce(function(a, r) { return a + Number(r.amount || 0); }, 0);
+  if (receipts.length === 0) {
+    var legacy = (managerState.payments || []).filter(function(p) { return p.invoice_id === invId; });
+    if (legacy.length > 0) {
+      prevPaid = legacy.reduce(function(a, p) { return a + Number(p.amount || 0); }, 0);
+    }
+  }
+
+  var bal = Math.max(0, invTotal - prevPaid);
+  totalEl.textContent = managerMoney(invTotal, inv.currency);
+  paidEl.textContent = managerMoney(prevPaid, inv.currency);
+  balEl.textContent = managerMoney(bal, inv.currency);
+
+  var amtInput = document.getElementById('paymentReceiptAmount');
+  if (amtInput && (!amtInput.value || Number(amtInput.value) <= 0) && !editId && bal > 0) {
+    amtInput.value = bal.toFixed(2);
+  }
+
+  onPaymentReceiptAmountInput();
+}
+
+function onPaymentReceiptAmountInput() {
+  var invId = gv('paymentReceiptInvoice');
+  var editId = gv('paymentReceiptEditId');
+  var alertBox = document.getElementById('paymentReceiptOverpayAlert');
+  var amtInput = document.getElementById('paymentReceiptAmount');
+  if (!amtInput) return;
+
+  var amount = Number(amtInput.value || 0);
+  var inv = (managerState.invoices || []).find(function(x) { return x.id === invId; });
+  if (!inv || amount <= 0) {
+    if (alertBox) alertBox.style.display = 'none';
+    amtInput.style.borderColor = '';
+    return;
+  }
+
+  var invTotal = Number(inv.grand_total || 0);
+  var receipts = (managerState.paymentReceipts || []).filter(function(r) {
+    return r.invoice_id === invId && (!editId || r.id !== editId);
+  });
+  var prevPaid = receipts.reduce(function(a, r) { return a + Number(r.amount || 0); }, 0);
+  if (receipts.length === 0) {
+    var legacy = (managerState.payments || []).filter(function(p) { return p.invoice_id === invId; });
+    if (legacy.length > 0) {
+      prevPaid = legacy.reduce(function(a, p) { return a + Number(p.amount || 0); }, 0);
+    }
+  }
+
+  var maxAllowed = Math.max(0, invTotal - prevPaid);
+  if (amount > maxAllowed + 0.005) {
+    amtInput.style.borderColor = '#dc2626';
+    if (alertBox) {
+      alertBox.style.display = 'block';
+      alertBox.innerHTML = '<div class="receipt-overpay-warning"><i class="ti ti-alert-triangle"></i> Amount entered (' + managerMoney(amount, inv.currency) + ') exceeds the outstanding balance (' + managerMoney(maxAllowed, inv.currency) + '). Maximum allowed is ' + managerMoney(maxAllowed, inv.currency) + '.</div>';
+    }
+  } else {
+    amtInput.style.borderColor = '';
+    if (alertBox) alertBox.style.display = 'none';
+  }
+}
+
+function onPaymentReceiptMethodChange() {
+  var method = gv('paymentReceiptMethod');
+  var bankInput = document.getElementById('paymentReceiptBank');
+  if (method === 'Bank Transfer' && bankInput && !bankInput.value) {
+    bankInput.value = 'Seylan Bank, Maharagama A/C 0080 3485 3012 001';
+  }
+}
+
+async function savePaymentReceipt() {
+  var editId = gv('paymentReceiptEditId');
+  var receiptNo = gv('paymentReceiptDocNum').trim();
+  var payDate = gv('paymentReceiptDate');
+  var customer = gv('paymentReceiptCustomer').trim();
+  var invId = gv('paymentReceiptInvoice');
+  var eventName = gv('paymentReceiptEvent').trim();
+  var amount = Number(gv('paymentReceiptAmount') || 0);
+  var method = gv('paymentReceiptMethod');
+  var refNo = gv('paymentReceiptReference').trim();
+  var bankAcc = gv('paymentReceiptBank').trim();
+  var notes = gv('paymentReceiptNotes').trim();
+
+  if (!receiptNo) { alert('Receipt number is required.'); return; }
+  if (!payDate) { alert('Payment date is required.'); return; }
+  if (!invId) { alert('Please select an invoice.'); return; }
+  if (amount <= 0 || isNaN(amount)) { alert('Please enter a valid payment amount greater than 0.'); return; }
+
+  var inv = (managerState.invoices || []).find(function(x) { return x.id === invId; });
+  if (!inv) { alert('Selected invoice was not found.'); return; }
+
+  var invTotal = Number(inv.grand_total || 0);
+  var otherReceipts = (managerState.paymentReceipts || []).filter(function(r) {
+    return r.invoice_id === invId && (!editId || r.id !== editId);
+  });
+  var prevPaid = otherReceipts.reduce(function(a, r) { return a + Number(r.amount || 0); }, 0);
+  if (otherReceipts.length === 0) {
+    var legacy = (managerState.payments || []).filter(function(p) { return p.invoice_id === invId; });
+    if (legacy.length > 0) {
+      prevPaid = legacy.reduce(function(a, p) { return a + Number(p.amount || 0); }, 0);
+    }
+  }
+  var maxAllowed = Math.max(0, invTotal - prevPaid);
+  if (amount > maxAllowed + 0.005) {
+    alert('Payment amount (' + managerMoney(amount, inv.currency) + ') exceeds outstanding balance (' + managerMoney(maxAllowed, inv.currency) + '). Maximum allowed is ' + managerMoney(maxAllowed, inv.currency) + '.');
+    return;
+  }
+
+  var clientName = customer || inv.client_name || '';
+  var payload = {
+    workspace_id: gv('sbWorkspace').trim(),
+    receipt_no: receiptNo,
+    payment_date: payDate,
+    customer_id: null,
+    client_name: clientName,
+    invoice_id: invId,
+    event_name: eventName || inv.event_name || '',
+    amount: amount,
+    payment_method: method,
+    reference_no: refNo || null,
+    bank_account: bankAcc || null,
+    notes: notes || null,
+    created_by: (PROFILE_CURRENT && PROFILE_CURRENT.email) || null,
+    updated_at: new Date().toISOString()
+  };
+
+  var saveBtn = document.getElementById('savePaymentReceiptBtn');
+  var origText = saveBtn ? saveBtn.innerHTML : '';
+  if (saveBtn) { saveBtn.disabled = true; saveBtn.innerHTML = '<i class="ti ti-loader"></i> Saving...'; }
+
+  try {
+    var url = sbBase() + '/rest/v1/payment_receipts' + (editId ? '?id=eq.' + encodeURIComponent(editId) : '');
+    var httpMethod = editId ? 'PATCH' : 'POST';
+    var h = sbHeaders(gv('sbKey').trim(), { 'Prefer': 'return=representation' });
+    var r = await fetch(url, { method: httpMethod, headers: h, body: JSON.stringify(payload) });
+    if (!r.ok) {
+      var tx = await r.text();
+      throw new Error(tx || ('HTTP ' + r.status));
+    }
+
+    if (!editId) {
+      var m = receiptNo.match(/-(\d+)$/);
+      if (m) {
+        var seqN = parseInt(m[1], 10);
+        try { localStorage.setItem(docSeqKey('Payment Received'), String(seqN)); } catch(e){}
+      }
+    }
+
+    var newTotalPaid = prevPaid + amount;
+    var newStatus = (newTotalPaid >= invTotal - 0.005) ? 'paid' : (newTotalPaid > 0 ? 'partial' : 'unpaid');
+    
+    var invPatchUrl = sbBase() + '/rest/v1/invoice_documents?id=eq.' + encodeURIComponent(invId);
+    await fetch(invPatchUrl, {
+      method: 'PATCH',
+      headers: sbHeaders(gv('sbKey').trim()),
+      body: JSON.stringify({ amount_paid: newTotalPaid, payment_status: newStatus, updated_at: new Date().toISOString() })
+    }).catch(function(e){ console.warn(e); });
+
+    closePaymentReceiptModal();
+    await loadManagerData();
+  } catch (e) {
+    console.error('Save payment receipt failed', e);
+    alert('Could not save payment receipt: ' + e.message);
+  } finally {
+    if (saveBtn) { saveBtn.disabled = false; saveBtn.innerHTML = origText; }
+  }
+}
+
+function editPaymentReceipt(id) {
+  openPaymentReceiptModal({ receiptId: id });
+}
+
+async function deletePaymentReceipt(id) {
+  var receipt = (managerState.paymentReceipts || []).find(function(r) { return r.id === id; });
+  if (!receipt) return;
+  if (!confirm('Permanently delete Payment Receipt ' + (receipt.receipt_no || '') + ' for ' + managerMoney(receipt.amount) + '?')) return;
+
+  try {
+    var r = await fetch(sbBase() + '/rest/v1/payment_receipts?id=eq.' + encodeURIComponent(id), {
+      method: 'DELETE',
+      headers: sbHeaders(gv('sbKey').trim())
+    });
+    if (!r.ok) throw new Error(await r.text());
+
+    if (receipt.invoice_id) {
+      var inv = (managerState.invoices || []).find(function(x) { return x.id === receipt.invoice_id; });
+      if (inv) {
+        var remainingReceipts = (managerState.paymentReceipts || []).filter(function(r) {
+          return r.invoice_id === receipt.invoice_id && r.id !== id;
+        });
+        var newPaid = remainingReceipts.reduce(function(a, r) { return a + Number(r.amount || 0); }, 0);
+        var total = Number(inv.grand_total || 0);
+        var newStatus = (newPaid >= total - 0.005) ? 'paid' : (newPaid > 0 ? 'partial' : 'unpaid');
+
+        await fetch(sbBase() + '/rest/v1/invoice_documents?id=eq.' + encodeURIComponent(receipt.invoice_id), {
+          method: 'PATCH',
+          headers: sbHeaders(gv('sbKey').trim()),
+          body: JSON.stringify({ amount_paid: newPaid, payment_status: newStatus, updated_at: new Date().toISOString() })
+        }).catch(function(e){ console.warn(e); });
+      }
+    }
+
+    await loadManagerData();
+  } catch (e) {
+    console.error('Delete payment receipt failed', e);
+    alert('Could not delete payment receipt: ' + e.message);
+  }
+}
+
+function renderPaymentReceipts() {
+  var wrap = document.getElementById('managerPaymentTable');
+  var metrics = document.getElementById('managerPaymentMetrics');
+  if (!wrap) return;
+
+  var allReceipts = managerState.paymentReceipts || [];
+  var totalCollected = allReceipts.reduce(function(a, r) { return a + Number(r.amount || 0); }, 0);
+  var thisMonth = new Date().toISOString().slice(0, 7);
+  var monthCollected = allReceipts.filter(function(r) {
+    return String(r.payment_date || r.created_at || '').slice(0, 7) === thisMonth;
+  }).reduce(function(a, r) { return a + Number(r.amount || 0); }, 0);
+  var paidInvoicesCount = (managerState.invoices || []).filter(function(x) { return invoiceStatus(x) === 'paid'; }).length;
+
+  if (metrics) {
+    metrics.innerHTML =
+      '<div class="metric-card"><div class="metric-label">Total Receipts Collected</div><div class="metric-value">' + managerMoney(totalCollected) + '</div><div class="metric-note">' + allReceipts.length + ' payment receipt(s) issued</div></div>' +
+      '<div class="metric-card"><div class="metric-label">Collected This Month</div><div class="metric-value">' + managerMoney(monthCollected) + '</div><div class="metric-note">' + esc(thisMonth) + ' collections</div></div>' +
+      '<div class="metric-card"><div class="metric-label">Fully Settled Invoices</div><div class="metric-value">' + paidInvoicesCount + '</div><div class="metric-note">Out of ' + (managerState.invoices || []).length + ' total invoices</div></div>' +
+      '<div class="metric-card"><div class="metric-label">Recent Activity</div><div class="metric-value">' + (allReceipts[0] ? managerDate(allReceipts[0].payment_date) : '—') + '</div><div class="metric-note">Latest receipt date</div></div>';
+  }
+
+  populatePaymentCustomerDropdown();
+
+  var q = (gv('managerPaymentSearch') || '').toLowerCase();
+  var mf = gv('managerPaymentMethodFilter') || 'all';
+  var cf = gv('managerPaymentCustomerFilter') || 'all';
+
+  var rows = allReceipts.filter(function(r) {
+    var inv = (managerState.invoices || []).find(function(x) { return x.id === r.invoice_id; });
+    var invNum = inv ? inv.doc_number : '';
+    var hay = [r.receipt_no, r.client_name, r.event_name, r.payment_method, r.reference_no, invNum].join(' ').toLowerCase();
+    return (!q || hay.indexOf(q) >= 0) &&
+           (mf === 'all' || r.payment_method === mf) &&
+           (cf === 'all' || (r.client_name || '').trim().toLowerCase() === cf.trim().toLowerCase());
+  }).sort(function(a, b) {
+    return String(b.payment_date || b.created_at || '').localeCompare(String(a.payment_date || a.created_at || ''));
+  });
+
+  if (!rows.length) {
+    wrap.innerHTML = '<div class="manager-empty">No payment receipts match this filter. Click "+ Record Payment Received" to issue a receipt.</div>';
+    return;
+  }
+
+  wrap.innerHTML = '<div class="manager-table-wrap"><table class="manager-table" style="min-width:980px"><thead><tr>' +
+    '<th>Receipt #</th>' +
+    '<th>Date</th>' +
+    '<th>Customer / Event</th>' +
+    '<th>Invoice #</th>' +
+    '<th>Method & Ref</th>' +
+    '<th>Amount Received</th>' +
+    '<th>Actions</th>' +
+    '</tr></thead><tbody>' + rows.map(function(r) {
+      var inv = (managerState.invoices || []).find(function(x) { return x.id === r.invoice_id; });
+      var invDisplay = inv ? '<a href="javascript:void(0)" onclick="openInvoiceHistory(\'' + inv.id + '\')" style="color:var(--accent);font-weight:600">' + esc(inv.doc_number) + '</a>' : '<span style="color:var(--text3)">—</span>';
+      return '<tr>' +
+        '<td><strong style="color:var(--accent);cursor:pointer" onclick="viewPaymentReceiptDoc(\'' + r.id + '\')" title="Click to view official receipt">' + esc(r.receipt_no) + '</strong></td>' +
+        '<td>' + managerDate(r.payment_date) + '</td>' +
+        '<td><strong>' + esc(r.client_name || '—') + '</strong>' + (r.event_name ? '<div style="font-size:11px;color:var(--text3)">' + esc(r.event_name) + '</div>' : '') + '</td>' +
+        '<td>' + invDisplay + '</td>' +
+        '<td>' + esc(r.payment_method || '—') + (r.reference_no ? '<div style="font-size:11px;color:var(--text3)">Ref: ' + esc(r.reference_no) + '</div>' : '') + '</td>' +
+        '<td class="manager-money" style="font-weight:700;color:var(--accent)">' + managerMoney(r.amount) + '</td>' +
+        '<td style="white-space:nowrap">' +
+          '<button class="btn btn-sm btn-primary" onclick="viewPaymentReceiptDoc(\'' + r.id + '\')" title="View Receipt Document"><i class="ti ti-eye"></i> View</button> ' +
+          '<button class="btn btn-sm" onclick="editPaymentReceipt(\'' + r.id + '\')" title="Edit Receipt"><i class="ti ti-edit"></i> Edit</button> ' +
+          '<button class="btn btn-sm btn-danger" onclick="deletePaymentReceipt(\'' + r.id + '\')" title="Delete Receipt"><i class="ti ti-trash"></i></button>' +
+        '</td>' +
+      '</tr>';
+    }).join('') + '</tbody></table></div>';
+}
+
+var CURRENT_VIEWING_RECEIPT = null;
+
+function viewPaymentReceiptDoc(id) {
+  var receipt = (managerState.paymentReceipts || []).find(function(r) { return r.id === id; });
+  if (!receipt) { alert('Receipt not found.'); return; }
+  CURRENT_VIEWING_RECEIPT = receipt;
+
+  var inv = (managerState.invoices || []).find(function(x) { return x.id === receipt.invoice_id; });
+  var invTotal = inv ? Number(inv.grand_total || 0) : Number(receipt.amount || 0);
+  var currency = (inv && inv.currency) || 'Rs. ';
+
+  var allReceiptsForInv = (managerState.paymentReceipts || []).filter(function(r) {
+    return r.invoice_id === receipt.invoice_id;
+  }).sort(function(a, b) {
+    return String(a.payment_date || a.created_at || '').localeCompare(String(b.payment_date || b.created_at || ''));
+  });
+
+  var totalPaidToDate = 0;
+  allReceiptsForInv.forEach(function(r) {
+    totalPaidToDate += Number(r.amount || 0);
+  });
+  if (allReceiptsForInv.length === 0) {
+    totalPaidToDate = Number(receipt.amount || 0);
+  }
+
+  var balRemaining = Math.max(0, invTotal - totalPaidToDate);
+
+  var logoHtml = LOGO_DATA
+    ? '<img src="' + LOGO_DATA + '" style="height:70px;max-width:180px;object-fit:contain" alt="Event Media Logo">'
+    : '<div style="font-size:24px;font-weight:800;color:var(--accent);letter-spacing:1px">EVENT MEDIA</div>';
+
+  var receiptHtml =
+    '<div id="receiptPrintableDoc" class="receipt-doc-paper">' +
+      '<div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #e2e8f0;padding-bottom:1.2rem;margin-bottom:1.5rem">' +
+        '<div>' +
+          logoHtml +
+          '<div style="font-size:11.5px;color:#64748b;margin-top:6px;line-height:1.4">' +
+            '<strong>Event Media</strong><br>' +
+            'Maharagama, Sri Lanka<br>' +
+            'Tel: +94 77 123 4567 / +94 71 987 6543<br>' +
+            'Email: info@eventmedia.lk · Web: www.eventmedia.lk' +
+          '</div>' +
+        '</div>' +
+        '<div style="text-align:right">' +
+          '<div class="receipt-badge">OFFICIAL RECEIPT</div>' +
+          '<div style="font-size:22px;font-weight:800;color:#0f172a;margin-top:4px">' + esc(receipt.receipt_no) + '</div>' +
+          '<div style="font-size:12px;color:#64748b;margin-top:2px">Date: <strong>' + managerDate(receipt.payment_date) + '</strong></div>' +
+        '</div>' +
+      '</div>' +
+
+      '<div class="receipt-summary-grid">' +
+        '<div class="receipt-summary-col">' +
+          '<div class="receipt-col-label">RECEIVED FROM</div>' +
+          '<div class="receipt-col-val">' + esc(receipt.client_name || (inv ? inv.client_name : '—')) + '</div>' +
+          (receipt.event_name ? '<div style="font-size:12px;color:#64748b;margin-top:3px"><i class="ti ti-calendar-event"></i> ' + esc(receipt.event_name) + '</div>' : '') +
+        '</div>' +
+        '<div class="receipt-summary-col">' +
+          '<div class="receipt-col-label">PAYMENT METHOD</div>' +
+          '<div class="receipt-col-val">' + esc(receipt.payment_method || 'Bank Transfer') + '</div>' +
+          (receipt.reference_no ? '<div style="font-size:12px;color:#64748b;margin-top:3px">Ref: <strong>' + esc(receipt.reference_no) + '</strong></div>' : '') +
+        '</div>' +
+      '</div>' +
+
+      '<div class="receipt-amount-card">' +
+        '<div class="receipt-amount-label">AMOUNT RECEIVED</div>' +
+        '<div class="receipt-amount-value">' + managerMoney(receipt.amount, currency) + '</div>' +
+        '<div style="font-size:12px;color:#0369a1;margin-top:4px;font-weight:500">Payment received with thanks.</div>' +
+      '</div>' +
+
+      '<div style="margin-top:1.5rem">' +
+        '<div style="font-size:12px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Invoice Payment Breakdown</div>' +
+        '<table class="receipt-table">' +
+          '<thead>' +
+            '<tr>' +
+              '<th>Invoice Reference</th>' +
+              '<th style="text-align:right">Invoice Total</th>' +
+              '<th style="text-align:right">Total Paid To Date</th>' +
+              '<th style="text-align:right">This Receipt</th>' +
+              '<th style="text-align:right">Remaining Balance</th>' +
+            '</tr>' +
+          '</thead>' +
+          '<tbody>' +
+            '<tr>' +
+              '<td>' +
+                '<strong>' + esc(inv ? inv.doc_number : 'Direct Payment') + '</strong>' +
+                (inv && inv.issue_date ? '<div style="font-size:11px;color:#64748b">Issued: ' + managerDate(inv.issue_date) + '</div>' : '') +
+              '</td>' +
+              '<td style="text-align:right">' + managerMoney(invTotal, currency) + '</td>' +
+              '<td style="text-align:right">' + managerMoney(totalPaidToDate, currency) + '</td>' +
+              '<td style="text-align:right;font-weight:700;color:#0284c7">' + managerMoney(receipt.amount, currency) + '</td>' +
+              '<td style="text-align:right;font-weight:700;color:' + (balRemaining > 0 ? '#ea580c' : '#16a34a') + '">' + managerMoney(balRemaining, currency) + '</td>' +
+            '</tr>' +
+          '</tbody>' +
+        '</table>' +
+      '</div>' +
+
+      ((receipt.bank_account || receipt.notes) ?
+        '<div style="margin-top:1.2rem;padding:10px 14px;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0;font-size:12px;color:#475569;line-height:1.5">' +
+          (receipt.bank_account ? '<div><strong>Bank Account:</strong> ' + esc(receipt.bank_account) + '</div>' : '') +
+          (receipt.notes ? '<div style="margin-top:2px"><strong>Remarks:</strong> ' + esc(receipt.notes) + '</div>' : '') +
+        '</div>' : '') +
+
+      '<div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:2.5rem;padding-top:1.5rem;border-top:1px dashed #cbd5e1">' +
+        '<div style="font-size:11px;color:#94a3b8;max-width:320px;line-height:1.4">' +
+          'This is a computer-generated official receipt issued by Event Media. For inquiries, please contact info@eventmedia.lk.' +
+        '</div>' +
+        '<div style="text-align:center">' +
+          (SIG_SASINDU ? '<img src="' + SIG_SASINDU + '" style="height:48px;max-width:140px;object-fit:contain;margin-bottom:2px" alt="Authorized Signature">' : '<div style="height:48px"></div>') +
+          '<div style="border-top:1px solid #475569;width:160px;margin:0 auto"></div>' +
+          '<div style="font-size:11.5px;font-weight:700;color:#1e293b;margin-top:4px">Authorized Signature</div>' +
+          '<div style="font-size:10.5px;color:#64748b">Event Media</div>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+
+  var container = document.getElementById('receiptDocContainer');
+  if (container) container.innerHTML = receiptHtml;
+
+  var titleEl = document.getElementById('receiptDocToolbarTitle');
+  if (titleEl) titleEl.textContent = 'Payment Receipt — ' + receipt.receipt_no;
+
+  document.getElementById('receiptDocModal').classList.add('open');
+}
+
+function closeReceiptDocModal() {
+  document.getElementById('receiptDocModal').classList.remove('open');
+}
+
+function printPaymentReceipt() {
+  window.print();
+}
+
+function downloadPaymentReceiptPNG() {
+  var el = document.getElementById('receiptPrintableDoc');
+  if (!el) { alert('Receipt not ready.'); return; }
+  var rNo = CURRENT_VIEWING_RECEIPT ? CURRENT_VIEWING_RECEIPT.receipt_no : 'receipt';
+  var lockWidth = el.getBoundingClientRect().width;
+  captureInvoiceCanvas(el, 1, lockWidth, '').then(function(canvas) {
+    var a = document.createElement('a');
+    a.href = canvas.toDataURL('image/png');
+    a.download = rNo + '.png';
+    a.click();
+  }).catch(function(e){ alert('Receipt PNG download failed: ' + e.message); });
+}
+
+function downloadPaymentReceiptPDF() {
+  var el = document.getElementById('receiptPrintableDoc');
+  if (!el) { alert('Receipt not ready.'); return; }
+  var rNo = CURRENT_VIEWING_RECEIPT ? CURRENT_VIEWING_RECEIPT.receipt_no : 'receipt';
+  var btn = document.getElementById('receiptPdfBtn');
+  var origText = btn ? btn.innerHTML : '';
+  if (btn) { btn.innerHTML = '<i class="ti ti-loader"></i> Generating...'; btn.disabled = true; }
+
+  var lockWidth = el.getBoundingClientRect().width;
+  captureInvoiceCanvas(el, 1, lockWidth, '').then(function(canvas) {
+    var pdf = new window.jspdf.jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    var pageW = pdf.internal.pageSize.getWidth();
+    var pageH = pdf.internal.pageSize.getHeight();
+    var marginX = 12, marginY = 12;
+    var imgW = pageW - marginX * 2;
+    var maxImgH = pageH - marginY * 2;
+    var imgData = canvas.toDataURL('image/jpeg', 0.95);
+    var imgH = Math.min((canvas.height / canvas.width) * imgW, maxImgH);
+    pdf.addImage(imgData, 'JPEG', marginX, marginY, imgW, imgH);
+    pdf.save(rNo + '.pdf');
+  }).catch(function(e) {
+    alert('Receipt PDF failed: ' + e.message);
+  }).finally(function() {
+    if (btn) { btn.innerHTML = origText; btn.disabled = false; }
+  });
+}
+
+var CURRENT_HISTORY_INVOICE_ID = null;
+
+function openInvoiceHistory(invoiceId) {
+  var inv = (managerState.invoices || []).find(function(x) { return x.id === invoiceId; });
+  if (!inv) { alert('Invoice not found.'); return; }
+  CURRENT_HISTORY_INVOICE_ID = invoiceId;
+
+  var total = Number(inv.grand_total || 0);
+  var receipts = (managerState.paymentReceipts || []).filter(function(r) { return r.invoice_id === invoiceId; });
+  var paid = invoicePaidAmount(inv);
+  var bal = Math.max(0, total - paid);
+  var st = invoiceStatus(inv);
+
+  document.getElementById('invoiceHistoryTitle').textContent = 'Payment History — ' + inv.doc_number;
+  document.getElementById('invoiceHistorySub').textContent = 'Client: ' + (inv.client_name || '—') + (inv.event_name ? ' · Event: ' + inv.event_name : '');
+
+  var addBtn = document.getElementById('invoiceHistoryAddPaymentBtn');
+  if (addBtn) {
+    addBtn.style.display = (bal > 0) ? '' : 'none';
+  }
+
+  var listHtml = '';
+  if (receipts.length === 0) {
+    var legacy = (managerState.payments || []).filter(function(p) { return p.invoice_id === invoiceId; });
+    if (legacy.length > 0) {
+      listHtml = '<div style="margin-bottom:.8rem;font-size:12px;color:var(--text3)">Legacy recorded payments:</div>' +
+        '<table class="manager-table" style="width:100%"><thead><tr><th>Date</th><th>Method</th><th>Ref</th><th>Amount</th></tr></thead><tbody>' +
+        legacy.map(function(p) {
+          return '<tr><td>' + managerDate(p.payment_date) + '</td><td>' + esc(p.method || '—') + '</td><td>' + esc(p.reference || '—') + '</td><td class="manager-money">' + managerMoney(p.amount, inv.currency) + '</td></tr>';
+        }).join('') + '</tbody></table>';
+    } else {
+      listHtml = '<div class="manager-empty">No payments received for this invoice yet. Click "Add Payment" to record a payment.</div>';
+    }
+  } else {
+    listHtml = '<table class="manager-table" style="width:100%"><thead><tr>' +
+      '<th>Receipt #</th>' +
+      '<th>Date</th>' +
+      '<th>Method & Ref</th>' +
+      '<th>Notes</th>' +
+      '<th style="text-align:right">Amount Received</th>' +
+      '<th style="text-align:right">Actions</th>' +
+      '</tr></thead><tbody>' +
+      receipts.map(function(r) {
+        return '<tr>' +
+          '<td><strong style="color:var(--accent);cursor:pointer" onclick="viewPaymentReceiptDoc(\'' + r.id + '\')" title="View Receipt">' + esc(r.receipt_no) + '</strong></td>' +
+          '<td>' + managerDate(r.payment_date) + '</td>' +
+          '<td>' + esc(r.payment_method || '—') + (r.reference_no ? '<div style="font-size:11px;color:var(--text3)">Ref: ' + esc(r.reference_no) + '</div>' : '') + '</td>' +
+          '<td>' + esc(r.notes || '—') + '</td>' +
+          '<td class="manager-money" style="font-weight:700;color:var(--accent)">' + managerMoney(r.amount, inv.currency) + '</td>' +
+          '<td style="text-align:right;white-space:nowrap">' +
+            '<button class="btn btn-sm btn-primary" onclick="viewPaymentReceiptDoc(\'' + r.id + '\')"><i class="ti ti-eye"></i> Receipt</button> ' +
+            '<button class="btn btn-sm" onclick="closeInvoiceHistoryModal();editPaymentReceipt(\'' + r.id + '\')"><i class="ti ti-edit"></i></button>' +
+          '</td>' +
+        '</tr>';
+      }).join('') + '</tbody></table>';
+  }
+
+  var bodyEl = document.getElementById('invoiceHistoryBody');
+  if (bodyEl) {
+    bodyEl.innerHTML =
+      '<div class="receipt-balance-cards" style="margin-bottom:1.2rem">' +
+        '<div class="receipt-balance-card"><div class="balance-card-label">Invoice Total</div><div class="balance-card-val">' + managerMoney(total, inv.currency) + '</div></div>' +
+        '<div class="receipt-balance-card"><div class="balance-card-label">Total Paid</div><div class="balance-card-val" style="color:#16a34a">' + managerMoney(paid, inv.currency) + '</div></div>' +
+        '<div class="receipt-balance-card highlight"><div class="balance-card-label">Balance Due</div><div class="balance-card-val" style="color:' + (bal > 0 ? '#ea580c' : '#16a34a') + '">' + managerMoney(bal, inv.currency) + '</div></div>' +
+        '<div class="receipt-balance-card"><div class="balance-card-label">Status</div><div class="balance-card-val" style="font-size:13px">' + statusBadge(st) + '</div></div>' +
+      '</div>' +
+      listHtml;
+  }
+
+  document.getElementById('invoiceHistoryModal').classList.add('open');
+}
+
+function closeInvoiceHistoryModal() {
+  document.getElementById('invoiceHistoryModal').classList.remove('open');
+}
+
+function openPaymentFromHistory() {
+  var id = CURRENT_HISTORY_INVOICE_ID;
+  closeInvoiceHistoryModal();
+  if (id) {
+    openPaymentReceiptModal({ invoiceId: id });
+  }
+}
+
+// Legacy Payment Modal fallback
 function openPaymentModal(id){
-  var inv=managerState.invoices.find(function(x){return x.id===id;}); if(!inv)return;
-  var bal=Math.max(0,Number(inv.grand_total||0)-invoicePaidAmount(inv));
-  document.getElementById('paymentInvoiceId').value=id; document.getElementById('paymentAmount').value=bal>0?bal.toFixed(2):''; document.getElementById('paymentDate').value=managerToday(); document.getElementById('paymentMethod').value='Bank Transfer'; document.getElementById('paymentReference').value=''; document.getElementById('paymentNotes').value='';
-  document.getElementById('paymentInvoiceInfo').innerHTML='<strong>'+esc(inv.doc_number)+'</strong> · '+esc(inv.client_name||'')+'<br>Balance: <strong>'+managerMoney(bal,inv.currency)+'</strong>';
-  document.getElementById('paymentModal').classList.add('open');
+  openPaymentReceiptModal({ invoiceId: id });
 }
-function closePaymentModal(){document.getElementById('paymentModal').classList.remove('open');}
-async function saveInvoicePayment(){
-  var id=gv('paymentInvoiceId'), amount=Number(gv('paymentAmount')||0), date=gv('paymentDate'); if(!id||amount<=0||!date){alert('Enter a valid payment amount and date.');return;}
-  var inv=managerState.invoices.find(function(x){return x.id===id;}); if(!inv)return;
-  var payload={workspace_id:gv('sbWorkspace').trim(),invoice_id:id,amount:amount,payment_date:date,method:gv('paymentMethod'),reference:gv('paymentReference'),notes:gv('paymentNotes')};
-  try{
-    var r=await fetch(sbBase()+'/rest/v1/invoice_payments',{method:'POST',headers:sbHeaders(gv('sbKey').trim(),{'Prefer':'return=representation'}),body:JSON.stringify(payload)}); if(!r.ok){var tx=await r.text();throw new Error(tx);} var created=await r.json();
-    if(created[0]) managerState.payments.unshift(created[0]);
-    var paid=managerState.payments.filter(function(p){return p.invoice_id===id;}).reduce(function(a,p){return a+Number(p.amount||0);},0); var total=Number(inv.grand_total||0); var st=paid>=total-0.005?'paid':(paid>0?'partial':'unpaid');
-    var pr=await fetch(sbBase()+'/rest/v1/invoice_documents?id=eq.'+encodeURIComponent(id),{method:'PATCH',headers:sbHeaders(gv('sbKey').trim()),body:JSON.stringify({amount_paid:paid,payment_status:st,updated_at:new Date().toISOString()})}); if(!pr.ok){var ptx=await pr.text();throw new Error(ptx);}
-    inv.amount_paid=paid;inv.payment_status=st;closePaymentModal();renderManagerAll();
-  }catch(e){console.error(e);alert('Could not save payment. Run the manager setup SQL if needed. '+e.message);}
-}
+function closePaymentModal(){ closePaymentReceiptModal(); }
+async function saveInvoicePayment(){ await savePaymentReceipt(); }
 function resetRentalForm(){['rentalEditId','rentalSupplier','rentalEvent','rentalItem','rentalReturnDate','rentalContact','rentalNotes'].forEach(function(id){document.getElementById(id).value='';});document.getElementById('rentalQty').value='1';document.getElementById('rentalDate').value=managerToday();document.getElementById('rentalAmount').value='0';document.getElementById('rentalPaid').value='0';document.getElementById('rentalStatus').value='booked';document.getElementById('rentalFormTitle').textContent='Add supplier rental';document.getElementById('rentalSaveBtn').innerHTML='<i class="ti ti-device-floppy"></i> Save rental';}
 async function saveRental(){
   var id=gv('rentalEditId'), supplier=gv('rentalSupplier').trim(), item=gv('rentalItem').trim(), date=gv('rentalDate'); if(!supplier||!item||!date){alert('Supplier, equipment/service and rental date are required.');return;}
@@ -2217,7 +2946,7 @@ function renderExpenses(){
 function renderReports(){
   var month=gv('reportMonth')||new Date().toISOString().slice(0,7);
   var inv=managerState.invoices.filter(function(x){return String(x.issue_date||x.created_at||'').slice(0,7)===month;});
-  var pays=managerState.payments.filter(function(p){return String(p.payment_date||'').slice(0,7)===month;});
+  var pays=(managerState.paymentReceipts&&managerState.paymentReceipts.length>0)?managerState.paymentReceipts.filter(function(p){return String(p.payment_date||'').slice(0,7)===month;}):(managerState.payments||[]).filter(function(p){return String(p.payment_date||'').slice(0,7)===month;});
   var rents=managerState.rentals.filter(function(r){return String(r.rent_date||'').slice(0,7)===month&&r.status!=='cancelled';});
   var hires=managerState.equipmentHires.filter(function(h){return String(h.hire_date||'').slice(0,7)===month&&h.hire_status!=='cancelled';});
   var exps=managerState.expenses.filter(function(e){return String(e.expense_date||'').slice(0,7)===month;});
@@ -2259,6 +2988,7 @@ function dbViewerVisibleKeys(rows){
   var table=managerState.dbTable||'invoice_documents';
   var preferred={
     invoice_documents:['id','doc_number','doc_type','client_name','event_name','grand_total','amount_paid','payment_status','issue_date','due_date','created_at','updated_at'],
+    payment_receipts:['id','receipt_no','payment_date','client_name','event_name','amount','payment_method','reference_no','bank_account','notes','created_at','updated_at'],
     invoice_payments:['id','invoice_id','amount','payment_date','payment_method','reference','notes','created_at'],
     equipment_rentals:['id','supplier_name','supplier_contact','item_description','event_name','rent_date','return_date','amount','amount_paid','status','notes','created_at','updated_at'],
     owned_equipment_hires:['id','customer_name','customer_contact','item_description','event_name','quantity','hire_date','return_date','amount','amount_paid','payment_status','hire_status','payment_method','reference','notes','created_at','updated_at'],
@@ -2397,5 +3127,5 @@ async function deleteAdminRecord(filteredIndex){
 
 function copyManagerSql(){navigator.clipboard.writeText(MANAGER_SQL).then(function(){document.getElementById('managerSetupStatus').innerHTML='<span class="pill pill-success">SQL copied</span>';}).catch(function(){alert('Please copy the SQL manually.');});}
 function openManagerSqlEditor(){var ref=sbProjectRef();if(!ref){alert('Enter your Supabase Project URL in the Cloud tab first.');return;}navigator.clipboard.writeText(MANAGER_SQL).catch(function(){});window.open('https://supabase.com/dashboard/project/'+ref+'/sql/new','_blank');}
-async function testManagerSchema(){var st=document.getElementById('managerSetupStatus');if(!sbConfigured()){st.innerHTML='<span class="pill pill-warn">Connect Supabase first</span>';return;}st.innerHTML='<span class="pill pill-info">Testing...</span>';try{await Promise.all([managerGet('app_profiles','user_id'),managerGet('invoice_payments','id'),managerGet('equipment_rentals','id'),managerGet('owned_equipment_hires','id'),managerGet('other_expenses','id')]);st.innerHTML='<span class="pill pill-success"><i class="ti ti-check"></i> Manager tables are ready</span>';loadManagerData();}catch(e){st.innerHTML='<span class="pill pill-warn">Setup still required: '+esc(e.message)+'</span>';}}
+async function testManagerSchema(){var st=document.getElementById('managerSetupStatus');if(!sbConfigured()){st.innerHTML='<span class="pill pill-warn">Connect Supabase first</span>';return;}st.innerHTML='<span class="pill pill-info">Testing...</span>';try{await Promise.all([managerGet('app_profiles','user_id'),managerGet('payment_receipts','id'),managerGet('invoice_payments','id'),managerGet('equipment_rentals','id'),managerGet('owned_equipment_hires','id'),managerGet('other_expenses','id')]);st.innerHTML='<span class="pill pill-success"><i class="ti ti-check"></i> Manager tables are ready</span>';loadManagerData();}catch(e){st.innerHTML='<span class="pill pill-warn">Setup still required: '+esc(e.message)+'</span>';}}
 window.addEventListener('DOMContentLoaded', function(){ if(document.getElementById('rentalDate')) resetRentalForm(); if(document.getElementById('equipmentHireDate')) resetEquipmentHireForm(); if(document.getElementById('expenseDate')) resetExpenseForm(); var fm=document.getElementById('financeMonth'); if(fm&&!fm.value)fm.value=new Date().toISOString().slice(0,7); var box=document.getElementById('managerSqlCode'); if(box) box.textContent=MANAGER_SQL; initProfileAuth(); });
