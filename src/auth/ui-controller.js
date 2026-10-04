@@ -31,6 +31,10 @@ export async function signInFromUI(){
     const email=value('authEmail'),password=el('authPassword')?.value||'';
     if(!email||!password) throw new Error('Enter your email and password.');
     status('Signing in...');
+    const keep = el('rememberLogin')?.checked !== false;
+    if (keep) localStorage.setItem('eventmedia:loginEmail', email);
+    else localStorage.removeItem('eventmedia:loginEmail');
+    localStorage.setItem('eventmedia:rememberLogin', keep ? '1' : '0');
     const result=await authService.signIn(email,password);
     store.patch({user:result.user,profile:result.profile,workspace:result.profile.workspace_id,role:result.profile.role});
     syncLegacyAccess();
