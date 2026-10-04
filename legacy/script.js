@@ -1667,7 +1667,7 @@ function importBackup(file) {
 
 // ── PRECONFIGURED PUBLIC SUPABASE CONNECTION ──
 // These are browser-safe client settings. Never put a service-role/secret key here.
-window.EVENTMEDIA_PUBLIC_CONFIG = Object.freeze({
+const EVENTMEDIA_PUBLIC_CONFIG = Object.freeze({
   supabaseUrl: 'https://fycfdsxvnnjoeczhdbfo.supabase.co',
   anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ5Y2Zkc3h2bm5qb2VjemhkYmZvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUxMzM3ODIsImV4cCI6MjEwMDcwOTc4Mn0.Pq9_753D6dAT-OtHAAs20ULsFsC6VVYBClUFt0z8Rmw',
   workspaceId: 'XTMNouuQ8iqJesxgH2R4'
@@ -3146,4 +3146,4 @@ async function deleteAdminRecord(filteredIndex){
 function copyManagerSql(){navigator.clipboard.writeText(MANAGER_SQL).then(function(){document.getElementById('managerSetupStatus').innerHTML='<span class="pill pill-success">SQL copied</span>';}).catch(function(){alert('Please copy the SQL manually.');});}
 function openManagerSqlEditor(){var ref=sbProjectRef();if(!ref){alert('Enter your Supabase Project URL in the Cloud tab first.');return;}navigator.clipboard.writeText(MANAGER_SQL).catch(function(){});window.open('https://supabase.com/dashboard/project/'+ref+'/sql/new','_blank');}
 async function testManagerSchema(){var st=document.getElementById('managerSetupStatus');if(!sbConfigured()){st.innerHTML='<span class="pill pill-warn">Connect Supabase first</span>';return;}st.innerHTML='<span class="pill pill-info">Testing...</span>';try{await Promise.all([managerGet('app_profiles','user_id'),managerGet('payment_receipts','id'),managerGet('invoice_payments','id'),managerGet('equipment_rentals','id'),managerGet('owned_equipment_hires','id'),managerGet('other_expenses','id')]);st.innerHTML='<span class="pill pill-success"><i class="ti ti-check"></i> Manager tables are ready</span>';loadManagerData();}catch(e){st.innerHTML='<span class="pill pill-warn">Setup still required: '+esc(e.message)+'</span>';}}
-window.addEventListener('DOMContentLoaded', function(){ if(document.getElementById('rentalDate')) resetRentalForm(); if(document.getElementById('equipmentHireDate')) resetEquipmentHireForm(); if(document.getElementById('expenseDate')) resetExpenseForm(); var fm=document.getElementById('financeMonth'); if(fm&&!fm.value)fm.value=new Date().toISOString().slice(0,7); var box=document.getElementById('managerSqlCode'); if(box) box.textContent=MANAGER_SQL; });
+window.addEventListener('DOMContentLoaded', function(){ if(document.getElementById('rentalDate')) resetRentalForm(); if(document.getElementById('equipmentHireDate')) resetEquipmentHireForm(); if(document.getElementById('expenseDate')) resetExpenseForm(); var fm=document.getElementById('financeMonth'); if(fm&&!fm.value)fm.value=new Date().toISOString().slice(0,7); var box=document.getElementById('managerSqlCode'); if(box) box.textContent=MANAGER_SQL; initProfileAuth(); });

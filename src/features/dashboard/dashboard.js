@@ -1,31 +1,16 @@
-import { getDashboardModel } from '../../services/dashboard.service.js';
 import { store } from '../../state/store.js';
 
 export function dashboardViewModel() {
-  const {data} = store.get();
+  const { data } = store.get();
   const invoices = data.invoices || [];
   const payments = data.payments || [];
   const expenses = data.expenses || [];
-  return {
-    revenue:invoices.reduce((s,x)=>s+Number(x.grand_total||0),0),
-    collected:payments.reduce((s,x)=>s+Number(x.amount||0),0),
-    expenses:expenses.reduce((s,x)=>s+Number(x.amount||0),0),
-    clients:(data.clients||[]).length,
-    events:(data.events||[]).length
-  };
-}
 
-export async function loadDashboard() {
-  const workspaceId = store.get().workspace;
-  if (!workspaceId) return null;
-  store.patch({loading:true});
-  try {
-    const model = await getDashboardModel(workspaceId);
-    Object.entries(model.data).forEach(([key,value])=>store.setData(key,value));
-    store.patch({loading:false});
-    window.dispatchEvent(new CustomEvent('dashboard:loaded',{detail:model}));
-    return model;
-  } finally {
-    store.patch({loading:false});
-  }
+  return {
+    revenue: invoices.reduce((s, x) => s + Number(x.grand_total || 0), 0),
+    collected: payments.reduce((s, x) => s + Number(x.amount || 0), 0),
+    expenses: expenses.reduce((s, x) => s + Number(x.amount || 0), 0),
+    clients: (data.clients || []).length,
+    events: (data.events || []).length
+  };
 }
