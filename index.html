@@ -1,0 +1,1261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Event Media OS — Business Management</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="features.css">
+<link rel="stylesheet" href="v4-modern.css">
+</head>
+<body>
+
+<div id="authGate" class="auth-gate">
+  <div class="auth-card">
+    <div class="auth-logo"><i class="ti ti-shield-lock"></i></div>
+    <div class="auth-title">Event Media Business System</div>
+    <div class="auth-sub">Sign in with your company profile. Create the first Admin once, then all employee accounts are created only from Admin → Profiles.</div>
+    <div class="auth-tabs">
+      <button class="auth-tab active" id="authTabLogin" onclick="showAuthMode('login')">Sign in</button>
+      <button class="auth-tab" id="authTabAdmin" onclick="showAuthMode('admin')">First admin</button>
+    </div>
+
+    <div id="authPaneLogin">
+      <div class="auth-field"><label>Email</label><input id="authEmail" type="email" autocomplete="username" placeholder="you@company.com"></div>
+      <div class="auth-field">
+        <label>Password</label>
+        <div class="login-password-wrap">
+          <input id="authPassword" type="password" autocomplete="current-password" placeholder="Password" onkeydown="if(event.key==='Enter')profileSignIn()">
+          <button type="button" class="login-eye-btn" id="passwordEyeBtn" onclick="toggleLoginPassword()" title="Show password"><i class="ti ti-eye"></i></button>
+        </div>
+      </div>
+      <label class="remember-row"><input type="checkbox" id="rememberLogin" checked> Keep me signed in on this device</label>
+      <div class="auth-actions"><button class="btn btn-primary" style="flex:1;justify-content:center" onclick="profileSignIn()"><i class="ti ti-login"></i> Sign in</button></div>
+    </div>
+
+    <div id="authPaneAdmin" style="display:none">
+      <div class="auth-field"><label>Your name</label><input id="authAdminName" placeholder="Admin name"></div>
+      <div class="auth-field"><label>Admin email</label><input id="authAdminEmail" type="email" autocomplete="username" placeholder="admin@company.com"></div>
+      <div class="auth-field"><label>Password</label><input id="authAdminPassword" type="password" autocomplete="new-password" placeholder="Minimum 6 characters"></div>
+      <div class="auth-actions"><button class="btn btn-primary" style="flex:1;justify-content:center" onclick="profileCreateAdmin()"><i class="ti ti-user-shield"></i> Create first admin</button></div>
+      <div class="auth-note">Use this only once after running the profile-access SQL. The first profile created for this Workspace becomes its Admin. Keep Supabase Email confirmation OFF so this works without an email link.</div>
+    </div>
+
+    <div id="authStatus" class="auth-status"></div><div class="auth-note"><i class="ti ti-lock"></i> Keep me signed in stores your secure Supabase session, not your raw password. Your email is remembered on this device.</div>
+    
+  </div>
+</div>
+
+<div class="topbar">
+  <div class="brand"><i class="ti ti-bolt"></i><span class="brand-copy"><span class="brand-text">Event Media</span><small>Business OS</small></span></div>
+  <div class="topbar-right">
+    <span class="user-chip" id="topUserChip" style="display:none"><i class="ti ti-user-circle"></i><strong id="topUserName"></strong><span class="role-chip" id="topUserRole"></span></span>
+    <button class="btn btn-sm" id="logoutBtn" style="display:none" onclick="profileLogout()"><i class="ti ti-logout"></i> Logout</button>
+    <button class="btn btn-sm btn-primary" onclick="openManager()" id="managerTopBtn" style="color:#ffffff!important"><i class="ti ti-layout-dashboard" style="color:#ffffff!important"></i> Business Manager</button>
+    <button class="btn btn-sm" onclick="toggleTheme()" id="themeBtn"><i class="ti ti-moon"></i> Dark</button>
+    <button class="btn btn-sm btn-success" onclick="saveCurrentDoc()" id="saveDocBtn" style="color:#ffffff!important"><i class="ti ti-device-floppy" style="color:#ffffff!important"></i> Save</button>
+    <button class="btn btn-sm" onclick="window.print()"><i class="ti ti-printer"></i> Print</button>
+    <button class="btn btn-sm btn-info" onclick="downloadPNG()" style="color:#ffffff!important"><i class="ti ti-photo-down" style="color:#ffffff!important"></i> PNG</button>
+    <button class="btn btn-sm btn-primary" id="pdfBtn" onclick="downloadPDF()" style="color:#ffffff!important"><i class="ti ti-file-type-pdf" style="color:#ffffff!important"></i> PDF</button>
+    <button class="btn btn-sm btn-success" onclick="exportCSV()" style="color:#ffffff!important"><i class="ti ti-download" style="color:#ffffff!important"></i> CSV</button>
+  </div>
+</div>
+
+<div class="main">
+<aside class="sidebar">
+  <div class="tabs">
+    <button class="tab active" id="tab-editor" onclick="showPane('editor')"><i class="ti ti-edit"></i> Editor</button>
+    <button class="tab" id="tab-templates" onclick="showPane('templates')"><i class="ti ti-layout-grid"></i> Templates</button>
+    <button class="tab" id="tab-gsheets" onclick="showPane('gsheets')"><i class="ti ti-table"></i> Sheets</button>
+    <button class="tab" id="tab-cloud" onclick="showPane('cloud')"><i class="ti ti-cloud"></i> Cloud</button>
+    <button class="tab" id="tab-history" onclick="showPane('history')"><i class="ti ti-history"></i> History</button>
+  </div>
+
+  <div id="pane-editor" class="tab-content">
+    <div class="section-label">Logo</div>
+    <div id="logoUploadArea" class="logo-upload-area" onclick="document.getElementById('logoFile').click()">
+      <i class="ti ti-upload" style="font-size:22px;color:var(--text3);margin-bottom:4px;display:block"></i>
+      <div style="font-size:12px;color:var(--text2)">Click to upload logo</div>
+      <div style="font-size:11px;color:var(--text3)">PNG, JPG, SVG</div>
+    </div>
+    <input type="file" id="logoFile" accept="image/*" style="display:none" onchange="handleLogo(this)">
+    <div id="logoPreviewWrap" style="display:none">
+      <div class="logo-preview">
+        <img id="logoThumb" src="" style="height:44px;max-width:100px;object-fit:contain;border-radius:4px" alt="logo">
+        <div style="flex:1">
+          <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:4px">Logo loaded</div>
+          <div class="logo-size-control">
+            <i class="ti ti-resize" style="font-size:13px"></i>
+            <input type="range" id="logoSize" min="40" max="160" value="108" oninput="updateLogoSize()">
+            <span id="logoSizeVal">108px</span>
+          </div>
+        </div>
+        <button class="btn-icon" onclick="clearLogo()" title="Remove logo"><i class="ti ti-trash"></i></button>
+      </div>
+    </div>
+
+    <div class="section-label">Your Company</div>
+    <div class="field"><label>Company name</label><input id="coName" value="Event Media Production" oninput="render()"></div>
+    <div class="row2">
+      <div class="field"><label>Email</label><input id="coEmail" value="eventmediap@gmail.com" oninput="render()"></div>
+      <div class="field"><label>Phone</label><input id="coPhone" value="+94 777486548 | +94 752878875" oninput="render()"></div>
+    </div>
+    <div class="field"><label>Address / Reg. No.</label><textarea id="coAddr" style="min-height:40px" oninput="render()">485/A, Weera Mw, Depanama, Pannipitiya</textarea></div>
+    <div class="row2">
+      <div class="field"><label>Instagram</label><input id="coInstagram" value="@event.media.production" oninput="render()"></div>
+      <div class="field"><label>Website <span style="font-weight:400;color:var(--text3)">(optional)</span></label><input id="coWebsite" value="" oninput="render()"></div>
+    </div>
+
+    <div class="section-label">Document</div>
+    <div class="row2">
+      <div class="field"><label>Type</label>
+        <select id="docType" onchange="onDocTypeChange()">
+          <option>Quotation</option><option>Invoice</option><option>Proforma Invoice</option><option>Purchase Order</option><option>Credit Note</option>
+        </select>
+      </div>
+      <div class="field"><label>Number</label>
+        <div style="display:flex;gap:4px">
+          <input id="docNum" value="" oninput="docNumManual=true;render()" style="flex:1">
+          <button type="button" class="btn-icon" title="Set starting number (continue from a number already issued)" onclick="setStartingNumber()" style="border:1px solid var(--border2);border-radius:var(--radius);flex-shrink:0"><i class="ti ti-adjustments"></i></button>
+          <button type="button" class="btn-icon" title="Generate next number" onclick="regenerateDocNum()" style="border:1px solid var(--border2);border-radius:var(--radius);flex-shrink:0"><i class="ti ti-refresh"></i></button>
+        </div>
+      </div>
+      <div class="field"><label>Issue date</label><input type="date" id="issueDate" oninput="render()"></div>
+      <div class="field" id="dueDateFieldWrap"><label>Valid / Due date</label><input type="date" id="dueDate" oninput="render()"></div>
+    </div>
+    <div class="row2" style="margin-bottom:.65rem;align-items:center">
+      <div style="display:flex;align-items:center;gap:8px">
+        <label class="switch"><input type="checkbox" id="showAmountDue" checked onchange="render()"><span class="slider"></span></label>
+        <span style="font-size:12.5px;color:var(--text2)">Show amount due box</span>
+      </div>
+    </div>
+    <div class="field" style="margin-bottom:.65rem">
+      <label>Document text size <span id="docTextSizeVal" style="color:var(--text2);font-weight:400">100%</span></label>
+      <input type="range" id="docTextSize" min="70" max="150" value="100" step="5" oninput="document.getElementById('docTextSizeVal').textContent=this.value+'%';render()" style="width:100%">
+    </div>
+    <div class="field" style="margin-bottom:.65rem">
+      <label>Page gap <span id="pageGapVal" style="color:var(--text2);font-weight:400">32px</span></label>
+      <input type="range" id="pageGap" min="0" max="80" value="32" step="2" oninput="document.getElementById('pageGapVal').textContent=this.value+'px';applyPageGap()" style="width:100%">
+    </div>
+
+    <div class="section-label">
+      <span>Event name <span style="font-size:10px;font-weight:400;color:var(--text3)">(optional)</span></span>
+      <label class="switch"><input type="checkbox" id="showEvent" onchange="toggleField('eventFieldWrap',this.checked);render()"><span class="slider"></span></label>
+    </div>
+    <div id="eventFieldWrap" style="display:none">
+      <div class="field"><input id="eventName" placeholder="e.g. Annual Gala 2024 - Corporate Launch" oninput="render()"></div>
+      <div class="row2">
+        <div class="field">
+          <label>Event dates</label>
+          <div id="eventDatesList"></div>
+          <button type="button" class="btn btn-sm btn-ghost" onclick="addEventDate()" style="margin-top:5px"><i class="ti ti-calendar-plus"></i> Add date</button>
+        </div>
+        <div class="field"><label>Event location</label><input id="eventLocation" placeholder="e.g. Shangri-La, Colombo" oninput="render()"></div>
+      </div>
+    </div>
+
+    <div class="section-label">Client</div>
+    <div class="field"><label>Client / Company name</label><textarea id="clientName" style="min-height:40px" oninput="render()">Acme Corp</textarea></div>
+    <div class="row2">
+      <div class="field"><label>Contact person</label><input id="clientContact" value="Jane Smith" oninput="render()"></div>
+      <div class="field"><label>Email</label><input id="clientEmail" value="jane@acme.com" oninput="render()"></div>
+    </div>
+    <div class="field"><label>Address</label><textarea id="clientAddr" style="min-height:40px" oninput="render()">123 Main Street, Colombo 03</textarea></div>
+
+    <div class="section-label">
+      <span>Categories &amp; Items</span>
+      <button class="btn btn-sm btn-ghost" onclick="addCategory(null)"><i class="ti ti-plus"></i> Add category</button>
+    </div>
+    <div class="row2" style="margin-bottom:.65rem;align-items:center">
+      <div style="display:flex;align-items:center;gap:8px">
+        <label class="switch"><input type="checkbox" id="showUnitCol" checked onchange="render()"><span class="slider"></span></label>
+        <span style="font-size:12.5px;color:var(--text2)">Show unit price column</span>
+      </div>
+    </div>
+    <div class="row2" style="margin-bottom:.65rem;align-items:center">
+      <div style="display:flex;align-items:center;gap:8px">
+        <label class="switch"><input type="checkbox" id="showCatHeadingTotal" checked onchange="render()"><span class="slider"></span></label>
+        <span style="font-size:12.5px;color:var(--text2)">Show total in category heading</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <label class="switch"><input type="checkbox" id="showCatSubtotal" checked onchange="render()"><span class="slider"></span></label>
+        <span style="font-size:12.5px;color:var(--text2)">Show category subtotal line</span>
+      </div>
+    </div>
+    <div id="categories"></div>
+
+    <div class="section-label">Global Adjustments</div>
+    <div class="row2" style="margin-bottom:.65rem">
+      <div class="field"><label>Currency</label>
+        <select id="currency" onchange="render()">
+          <option value="Rs. ">LKR Rs.</option>
+          <option value="$ ">USD $</option><option value="EUR ">EUR</option>
+          <option value="GBP ">GBP</option><option value="INR ">INR</option>
+          <option value="AED ">AED</option><option value="AUD ">AUD</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="pricing-block">
+      <div class="pricing-block-header">
+        <span>Global Discount</span>
+        <label class="switch"><input type="checkbox" id="discEnabled" onchange="toggleField('discFields',this.checked);render()"><span class="slider"></span></label>
+      </div>
+      <div id="discFields" style="display:none">
+        <div class="adj-row">
+          <div><label>Label</label><input id="discLabel" value="Discount" oninput="render()"></div>
+          <div><label>Mode</label><select id="discMode" onchange="render()"><option value="pct">Percentage %</option><option value="amt">Fixed amount</option></select></div>
+          <div><label>Value</label><input type="number" id="discVal" value="0" min="0" step="0.01" oninput="render()"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="pricing-block">
+      <div class="pricing-block-header">
+        <span>Tax / VAT</span>
+        <label class="switch"><input type="checkbox" id="taxEnabled" onchange="toggleField('taxFields',this.checked);render()"><span class="slider"></span></label>
+      </div>
+      <div id="taxFields" style="display:none">
+        <div class="adj-row">
+          <div><label>Label</label><input id="taxLabel" value="VAT" oninput="render()"></div>
+          <div><label>Mode</label><select id="taxMode" onchange="render()"><option value="pct">Percentage %</option><option value="amt">Fixed amount</option></select></div>
+          <div><label>Value</label><input type="number" id="taxVal" value="0" min="0" step="0.01" oninput="render()"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-label" style="margin-top:1rem">Signatories</div>
+    <div class="row2" style="margin-bottom:.65rem;align-items:center">
+      <div style="display:flex;align-items:center;gap:8px">
+        <label class="switch"><input type="checkbox" id="showApprovedLabel" checked onchange="render()"><span class="slider"></span></label>
+        <span style="font-size:12.5px;color:var(--text2)">Show "Approved by" label</span>
+      </div>
+    </div>
+    <div class="field" style="margin-bottom:.65rem">
+      <label>Signature size <span id="sigSizeVal" style="color:var(--text2);font-weight:400">125%</span></label>
+      <input type="range" id="sigSize" min="60" max="180" value="125" step="5" oninput="document.getElementById('sigSizeVal').textContent=this.value+'%';render()" style="width:100%">
+    </div>
+    <div class="signer-card">
+      <div class="signer-card-header">
+        <div class="signer-badge"><i class="ti ti-user-check"></i> Sasindu Methsukha</div>
+        <label class="switch"><input type="checkbox" id="sign1" checked onchange="render()"><span class="slider"></span></label>
+      </div>
+      <div class="field" style="margin:0"><label>Role / Title</label><input id="sign1role" value="Director" oninput="render()"></div>
+    </div>
+    <div class="signer-card">
+      <div class="signer-card-header">
+        <div class="signer-badge"><i class="ti ti-user-check"></i> Sampath Priyantha</div>
+        <label class="switch"><input type="checkbox" id="sign2" onchange="render()"><span class="slider"></span></label>
+      </div>
+      <div class="field" style="margin:0"><label>Role / Title</label><input id="sign2role" value="Authorized Signatory" oninput="render()"></div>
+    </div>
+
+    <div class="field" style="margin-top:.75rem"><label>Accent colour</label>
+      <div class="swatch-row">
+        <div class="swatch active" style="background:#c0392b" onclick="setAccent('#c0392b')"></div>
+        <div class="swatch" style="background:#1a56db" onclick="setAccent('#1a56db')"></div>
+        <div class="swatch" style="background:#087f5b" onclick="setAccent('#087f5b')"></div>
+        <div class="swatch" style="background:#862e9c" onclick="setAccent('#862e9c')"></div>
+        <div class="swatch" style="background:#e67700" onclick="setAccent('#e67700')"></div>
+        <div class="swatch" style="background:#0b7285" onclick="setAccent('#0b7285')"></div>
+        <div class="swatch" style="background:#2b2d42" onclick="setAccent('#2b2d42')"></div>
+      </div>
+    </div>
+    <div class="field"><label>Notes / Terms &amp; Conditions</label>
+      <textarea id="docNotes" oninput="render()">Thank you for choosing Event Media Production. Payment is due within 30 days. Please reference the document number when making payment.</textarea>
+    </div>
+
+    <div class="section-label">
+      <span>Payment information</span>
+      <label class="switch"><input type="checkbox" id="showPayment" onchange="toggleField('paymentFieldWrap',this.checked);render()"><span class="slider"></span></label>
+    </div>
+    <div id="paymentFieldWrap" style="display:none">
+      <div class="field"><label>Bank name / Branch</label><input id="payBank" placeholder="e.g. Seylan Bank, Maharagama" oninput="render()"></div>
+      <div class="row2">
+        <div class="field"><label>Account name</label><input id="payAccName" placeholder="Account holder name" oninput="render()"></div>
+        <div class="field"><label>Account number</label><input id="payAccNo" placeholder="Account number" oninput="render()"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="pane-templates" class="tab-content" style="display:none">
+    <div class="section-label">Industry Templates</div>
+    <div class="tpl-grid" id="tplGrid"></div>
+    <div class="section-label">Accent Colour</div>
+    <div class="swatch-row" style="margin-bottom:1rem">
+      <div class="swatch" style="background:#c0392b" onclick="setAccent('#c0392b')"></div>
+      <div class="swatch" style="background:#1a56db" onclick="setAccent('#1a56db')"></div>
+      <div class="swatch" style="background:#087f5b" onclick="setAccent('#087f5b')"></div>
+      <div class="swatch" style="background:#862e9c" onclick="setAccent('#862e9c')"></div>
+      <div class="swatch" style="background:#e67700" onclick="setAccent('#e67700')"></div>
+      <div class="swatch" style="background:#0b7285" onclick="setAccent('#0b7285')"></div>
+    </div>
+    <div class="section-label">Document Type</div>
+    <div class="row2">
+      <button class="btn" onclick="setDocType('Quotation')"><i class="ti ti-file-text"></i> Quotation</button>
+      <button class="btn" onclick="setDocType('Invoice')"><i class="ti ti-receipt"></i> Invoice</button>
+    </div>
+  </div>
+
+  <div id="pane-gsheets" class="tab-content" style="display:none">
+    <div class="info-box"><i class="ti ti-info-circle" style="font-size:16px;flex-shrink:0"></i>
+      <div>Connect to Google Sheets using a free Apps Script. No API keys needed.</div>
+    </div>
+    <div class="section-label">Connection</div>
+    <div class="field"><label>Apps Script Web App URL</label><input id="gsUrl" placeholder="https://script.google.com/macros/s/.../exec"></div>
+    <div class="field"><label>Sheet / Tab name</label><input id="gsSheet" value="Invoices"></div>
+    <div style="display:flex;gap:.4rem;margin-bottom:.7rem">
+      <button class="btn" style="flex:1;justify-content:center" onclick="testGS()"><i class="ti ti-plug"></i> Test</button>
+      <button class="btn btn-primary" style="flex:1;justify-content:center" onclick="pushToSheets()"><i class="ti ti-table-export"></i> Push to Sheets</button>
+    </div>
+    <div id="gsStatus" style="margin-bottom:.7rem"></div>
+    <div class="section-label">Setup Guide</div>
+    <div class="step"><div class="step-num">1</div><div>Open <a href="https://sheets.new" target="_blank" style="color:var(--accent)">sheets.new</a> and create a spreadsheet.</div></div>
+    <div class="step"><div class="step-num">2</div><div>Go to <strong>Extensions &rarr; Apps Script</strong>, paste the script below, deploy as Web App, access: <strong>Anyone</strong>.</div></div>
+    <div class="step"><div class="step-num">3</div><div>Paste the Web App URL above and click Push.</div></div>
+    <div class="code-block" id="appsScriptCode">function doPost(e) {
+  var data = JSON.parse(e.postData.contents);
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sh = ss.getSheetByName(data.sheet) || ss.insertSheet(data.sheet);
+  if (sh.getLastRow() === 0) sh.appendRow(data.headers);
+  data.rows.forEach(function(r) { sh.appendRow(r); });
+  return ContentService.createTextOutput(JSON.stringify({ok:true}))
+    .setMimeType(ContentService.MimeType.JSON);
+}</div>
+    <button class="btn btn-sm" onclick="copyScript()"><i class="ti ti-copy"></i> Copy script</button>
+  </div>
+
+  <div id="pane-cloud" class="tab-content" style="display:none">
+    <div class="info-box"><i class="ti ti-info-circle" style="font-size:16px;flex-shrink:0"></i>
+      <div>Connect a free Supabase database and every saved document, your company/theme settings, and document numbering all live in the cloud &mdash; available on any browser or device that uses the same Workspace ID. Once connected, <strong>Save</strong> writes straight to Supabase and <strong>History</strong> reads straight from it.</div>
+    </div>
+    <div id="sbConnBanner" style="margin-bottom:.7rem"></div>
+    <div class="section-label">Connection</div>
+    <div class="field"><label>Supabase Project URL</label><input id="sbUrl" placeholder="https://xxxxxxxx.supabase.co" oninput="saveSupabaseCreds()"></div>
+    <div class="field"><label>Supabase anon public API key</label><input id="sbKey" placeholder="eyJhbGciOi..." oninput="saveSupabaseCreds()"></div>
+    <div class="field"><label>Workspace ID <span style="font-weight:400;color:var(--text3)">(shared secret &mdash; use the same one on every device)</span></label>
+      <div style="display:flex;gap:4px">
+        <input id="sbWorkspace" style="flex:1" oninput="saveSupabaseCreds()">
+        <button type="button" class="btn-icon" title="Generate new ID" style="border:1px solid var(--border2);border-radius:var(--radius)" onclick="generateWorkspaceId()"><i class="ti ti-dice"></i></button>
+        <button type="button" class="btn-icon" title="Copy" style="border:1px solid var(--border2);border-radius:var(--radius)" onclick="copyWorkspaceId()"><i class="ti ti-copy"></i></button>
+      </div>
+    </div>
+    <div class="row2" style="margin-bottom:.65rem;align-items:center">
+      <div style="display:flex;align-items:center;gap:8px">
+        <label class="switch"><input type="checkbox" id="sbAutoSync" onchange="saveSupabaseCreds()"><span class="slider"></span></label>
+        <span style="font-size:12.5px;color:var(--text2)">Auto-sync on every change</span>
+      </div>
+    </div>
+    <div style="display:flex;gap:.4rem;margin-bottom:.7rem">
+      <button class="btn" style="flex:1;justify-content:center" onclick="testSupabase()"><i class="ti ti-plug"></i> Test</button>
+      <button class="btn btn-info" style="flex:1;justify-content:center" onclick="pullFromSupabase()"><i class="ti ti-cloud-download"></i> Pull</button>
+      <button class="btn btn-primary" style="flex:1;justify-content:center" onclick="pushToSupabase()"><i class="ti ti-cloud-upload"></i> Push</button>
+    </div>
+    <div id="sbStatus" style="margin-bottom:.7rem"></div>
+    <div class="section-label">Setup Guide</div>
+    <div class="step"><div class="step-num">1</div><div>Create a free project at <a href="https://supabase.com" target="_blank" style="color:var(--accent)">supabase.com</a>.</div></div>
+    <div class="step"><div class="step-num">2</div><div>Open the <strong>SQL Editor</strong> and run the script below once, to create the storage table.</div></div>
+    <div class="step"><div class="step-num">3</div><div>Go to <strong>Project Settings &rarr; API</strong>, copy the <strong>Project URL</strong> and the <strong>anon public</strong> key into the fields above.</div></div>
+    <div class="step"><div class="step-num">4</div><div>Keep the auto-generated Workspace ID (or copy it), and paste the same URL, key, and Workspace ID into this tool on any other device to stay in sync.</div></div>
+    <div class="code-block" id="supabaseSqlCode">-- Event Media Production - Invoice + Business Manager schema
+-- Safe to run multiple times.
+
+create table if not exists invoice_app_state (
+  workspace_id text primary key,
+  data jsonb not null,
+  updated_at timestamptz not null default now()
+);
+alter table invoice_app_state enable row level security;
+drop policy if exists "Allow anon read/write" on invoice_app_state;
+create policy "Allow anon read/write" on invoice_app_state for all using (true) with check (true);
+
+create table if not exists invoice_documents (
+  id uuid primary key default gen_random_uuid(),
+  workspace_id text not null,
+  doc_number text not null,
+  doc_type text not null,
+  client_name text,
+  event_name text,
+  grand_total numeric,
+  currency text,
+  snapshot jsonb not null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+alter table invoice_documents add column if not exists issue_date date;
+alter table invoice_documents add column if not exists due_date date;
+alter table invoice_documents add column if not exists payment_status text not null default 'unpaid';
+alter table invoice_documents add column if not exists amount_paid numeric not null default 0;
+alter table invoice_documents enable row level security;
+drop policy if exists "Allow anon read/write" on invoice_documents;
+create policy "Allow anon read/write" on invoice_documents for all using (true) with check (true);
+create unique index if not exists invoice_documents_ws_docnum on invoice_documents (workspace_id, doc_number);
+create index if not exists invoice_documents_ws_type on invoice_documents (workspace_id, doc_type);
+
+create table if not exists invoice_payments (
+  id uuid primary key default gen_random_uuid(),
+  workspace_id text not null,
+  invoice_id uuid not null references invoice_documents(id) on delete cascade,
+  amount numeric not null check (amount > 0),
+  payment_date date not null default current_date,
+  method text,
+  reference text,
+  notes text,
+  created_at timestamptz not null default now()
+);
+alter table invoice_payments enable row level security;
+drop policy if exists "Allow anon read/write" on invoice_payments;
+create policy "Allow anon read/write" on invoice_payments for all using (true) with check (true);
+create index if not exists invoice_payments_ws_invoice on invoice_payments (workspace_id, invoice_id);
+create index if not exists invoice_payments_ws_date on invoice_payments (workspace_id, payment_date);
+
+create table if not exists payment_receipts (
+  id uuid primary key default gen_random_uuid(),
+  workspace_id text not null,
+  receipt_no text not null,
+  payment_date date not null default current_date,
+  customer_id text,
+  client_name text,
+  invoice_id uuid references invoice_documents(id) on delete set null,
+  event_name text,
+  amount numeric not null check (amount > 0),
+  payment_method text not null default 'Bank Transfer',
+  reference_no text,
+  bank_account text,
+  notes text,
+  created_by text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+alter table payment_receipts enable row level security;
+drop policy if exists "Allow anon read/write" on payment_receipts;
+create policy "Allow anon read/write" on payment_receipts for all using (true) with check (true);
+create unique index if not exists payment_receipts_ws_receiptno on payment_receipts (workspace_id, receipt_no);
+create index if not exists payment_receipts_ws_invoice on payment_receipts (workspace_id, invoice_id);
+create index if not exists payment_receipts_ws_customer on payment_receipts (workspace_id, customer_id);
+create index if not exists payment_receipts_ws_date on payment_receipts (workspace_id, payment_date);
+create index if not exists payment_receipts_ws_client on payment_receipts (workspace_id, client_name);
+
+-- Backfill existing invoice_payments into payment_receipts if not yet migrated
+do $$
+begin
+  if exists (select 1 from information_schema.tables where table_schema='public' and table_name='invoice_payments') then
+    insert into payment_receipts (id, workspace_id, receipt_no, payment_date, invoice_id, client_name, event_name, amount, payment_method, reference_no, notes, created_at, updated_at)
+    select
+      ip.id,
+      ip.workspace_id,
+      'PR-' || to_char(ip.payment_date, 'YYYY') || '-' || lpad(row_number() over (partition by ip.workspace_id, to_char(ip.payment_date, 'YYYY') order by ip.created_at)::text, 4, '0'),
+      ip.payment_date,
+      ip.invoice_id,
+      inv.client_name,
+      inv.event_name,
+      ip.amount,
+      coalesce(ip.method, 'Bank Transfer'),
+      ip.reference,
+      ip.notes,
+      ip.created_at,
+      ip.created_at
+    from invoice_payments ip
+    left join invoice_documents inv on inv.id = ip.invoice_id
+    where not exists (select 1 from payment_receipts pr where pr.id = ip.id);
+  end if;
+end $$;
+
+create table if not exists equipment_rentals (
+  id uuid primary key default gen_random_uuid(),
+  workspace_id text not null,
+  supplier_name text not null,
+  supplier_contact text,
+  event_name text,
+  item_description text not null,
+  quantity numeric not null default 1,
+  rent_date date not null,
+  return_date date,
+  amount numeric not null default 0,
+  amount_paid numeric not null default 0,
+  status text not null default 'booked',
+  notes text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+alter table equipment_rentals enable row level security;
+drop policy if exists "Allow anon read/write" on equipment_rentals;
+create policy "Allow anon read/write" on equipment_rentals for all using (true) with check (true);
+create index if not exists equipment_rentals_ws_date on equipment_rentals (workspace_id, rent_date);
+create index if not exists equipment_rentals_ws_supplier on equipment_rentals (workspace_id, supplier_name);
+
+-- Income earned by renting out Event Media Production's own equipment without an invoice
+create table if not exists owned_equipment_hires (
+  id uuid primary key default gen_random_uuid(),
+  workspace_id text not null,
+  customer_name text not null,
+  customer_contact text,
+  event_name text,
+  item_description text not null,
+  quantity numeric not null default 1,
+  hire_date date not null,
+  return_date date,
+  amount numeric not null default 0,
+  amount_paid numeric not null default 0,
+  payment_status text not null default 'unpaid',
+  hire_status text not null default 'booked',
+  payment_method text,
+  reference text,
+  notes text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+alter table owned_equipment_hires enable row level security;
+drop policy if exists "Allow anon read/write" on owned_equipment_hires;
+create policy "Allow anon read/write" on owned_equipment_hires for all using (true) with check (true);
+create index if not exists owned_equipment_hires_ws_date on owned_equipment_hires (workspace_id, hire_date);
+create index if not exists owned_equipment_hires_ws_customer on owned_equipment_hires (workspace_id, customer_name);
+
+create table if not exists other_expenses (
+  id uuid primary key default gen_random_uuid(),
+  workspace_id text not null,
+  expense_date date not null default current_date,
+  category text not null default 'Other',
+  description text not null,
+  event_name text,
+  amount numeric not null default 0,
+  payment_method text,
+  reference text,
+  notes text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+alter table other_expenses enable row level security;
+drop policy if exists "Allow anon read/write" on other_expenses;
+create policy "Allow anon read/write" on other_expenses for all using (true) with check (true);
+create index if not exists other_expenses_ws_date on other_expenses (workspace_id, expense_date);
+create index if not exists other_expenses_ws_category on other_expenses (workspace_id, category);
+
+-- Grant schema and table privileges to API roles (anon & authenticated)
+grant usage on schema public to anon, authenticated;
+grant select, insert, update, delete on table invoice_app_state to anon, authenticated;
+grant select, insert, update, delete on table invoice_documents to anon, authenticated;
+grant select, insert, update, delete on table invoice_payments to anon, authenticated;
+grant select, insert, update, delete on table payment_receipts to anon, authenticated;
+grant select, insert, update, delete on table equipment_rentals to anon, authenticated;
+grant select, insert, update, delete on table owned_equipment_hires to anon, authenticated;
+grant select, insert, update, delete on table other_expenses to anon, authenticated;
+grant all privileges on all tables in schema public to anon, authenticated;
+grant all privileges on all sequences in schema public to anon, authenticated;
+alter default privileges in schema public grant all on tables to anon, authenticated;
+alter default privileges in schema public grant all on sequences to anon, authenticated;
+
+
+-- ─────────────────────────────────────────────────────────────
+-- PROFILE-BASED LOGIN + ROLE SECURITY
+-- Admin: full access.
+-- Employee: equipment_rentals + owned_equipment_hires only.
+-- ─────────────────────────────────────────────────────────────
+
+create table if not exists employee_invites (
+  id uuid primary key default gen_random_uuid(),
+  workspace_id text not null,
+  invite_code text not null unique,
+  employee_name text,
+  created_by uuid references auth.users(id) on delete set null,
+  expires_at timestamptz not null,
+  used_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists app_profiles (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  workspace_id text not null,
+  email text,
+  full_name text not null default '',
+  role text not null default 'employee' check (role in ('admin','employee')),
+  active boolean not null default false,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index if not exists app_profiles_workspace on app_profiles(workspace_id);
+create index if not exists employee_invites_workspace on employee_invites(workspace_id);
+
+-- Helper functions used by RLS. SECURITY DEFINER avoids recursive profile RLS.
+create or replace function public.app_workspace_id()
+returns text
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select p.workspace_id from public.app_profiles p
+  where p.user_id = auth.uid() and p.active = true
+  limit 1
+$$;
+
+create or replace function public.app_role()
+returns text
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select p.role from public.app_profiles p
+  where p.user_id = auth.uid() and p.active = true
+  limit 1
+$$;
+
+create or replace function public.app_is_admin()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select coalesce(public.app_role() = 'admin', false)
+$$;
+
+grant execute on function public.app_workspace_id() to authenticated;
+grant execute on function public.app_role() to authenticated;
+grant execute on function public.app_is_admin() to authenticated;
+
+-- New Auth users are converted into app profiles.
+-- First profile for a workspace becomes Admin.
+-- Later employee sign-ups require an unused invite code generated by the Admin.
+create or replace function public.handle_event_media_new_user()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_ws text;
+  v_name text;
+  v_invite text;
+  v_is_first boolean;
+  v_invite_id uuid;
+begin
+  v_ws := nullif(trim(coalesce(new.raw_user_meta_data->>'workspace_id','')), '');
+  v_name := trim(coalesce(new.raw_user_meta_data->>'full_name',''));
+  v_invite := nullif(trim(coalesce(new.raw_user_meta_data->>'invite_code','')), '');
+
+  if v_ws is null then
+    return new;
+  end if;
+
+  select not exists(select 1 from public.app_profiles where workspace_id = v_ws)
+    into v_is_first;
+
+  if v_is_first then
+    insert into public.app_profiles(user_id,workspace_id,email,full_name,role,active)
+    values(new.id,v_ws,new.email,v_name,'admin',true)
+    on conflict(user_id) do nothing;
+    return new;
+  end if;
+
+  if v_invite is not null then
+    select id into v_invite_id
+    from public.employee_invites
+    where workspace_id = v_ws
+      and invite_code = v_invite
+      and used_at is null
+      and expires_at > now()
+    limit 1;
+  end if;
+
+  if v_invite_id is not null then
+    insert into public.app_profiles(user_id,workspace_id,email,full_name,role,active)
+    values(new.id,v_ws,new.email,v_name,'employee',true)
+    on conflict(user_id) do nothing;
+    update public.employee_invites set used_at = now() where id = v_invite_id;
+  else
+    insert into public.app_profiles(user_id,workspace_id,email,full_name,role,active)
+    values(new.id,v_ws,new.email,v_name,'employee',false)
+    on conflict(user_id) do nothing;
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists on_event_media_user_created on auth.users;
+create trigger on_event_media_user_created
+after insert on auth.users
+for each row execute function public.handle_event_media_new_user();
+
+alter table app_profiles enable row level security;
+alter table employee_invites enable row level security;
+
+drop policy if exists "profiles read" on app_profiles;
+drop policy if exists "profiles admin update" on app_profiles;
+create policy "profiles read" on app_profiles
+for select to authenticated
+using (
+  user_id = auth.uid()
+  or (public.app_is_admin() and workspace_id = public.app_workspace_id())
+);
+create policy "profiles admin update" on app_profiles
+for update to authenticated
+using (public.app_is_admin() and workspace_id = public.app_workspace_id())
+with check (public.app_is_admin() and workspace_id = public.app_workspace_id());
+
+drop policy if exists "invites admin all" on employee_invites;
+create policy "invites admin all" on employee_invites
+for all to authenticated
+using (public.app_is_admin() and workspace_id = public.app_workspace_id())
+with check (public.app_is_admin() and workspace_id = public.app_workspace_id());
+
+-- Remove the old public/anonymous policies.
+drop policy if exists "Allow anon read/write" on invoice_app_state;
+drop policy if exists "Allow anon read/write" on invoice_documents;
+drop policy if exists "Allow anon read/write" on invoice_payments;
+drop policy if exists "Allow anon read/write" on payment_receipts;
+drop policy if exists "Allow anon read/write" on equipment_rentals;
+drop policy if exists "Allow anon read/write" on owned_equipment_hires;
+drop policy if exists "Allow anon read/write" on other_expenses;
+
+-- Admin-only business data.
+drop policy if exists "admin invoice app state" on invoice_app_state;
+create policy "admin invoice app state" on invoice_app_state
+for all to authenticated
+using (public.app_is_admin() and workspace_id = public.app_workspace_id())
+with check (public.app_is_admin() and workspace_id = public.app_workspace_id());
+
+drop policy if exists "admin invoice documents" on invoice_documents;
+create policy "admin invoice documents" on invoice_documents
+for all to authenticated
+using (public.app_is_admin() and workspace_id = public.app_workspace_id())
+with check (public.app_is_admin() and workspace_id = public.app_workspace_id());
+
+drop policy if exists "admin invoice payments" on invoice_payments;
+create policy "admin invoice payments" on invoice_payments
+for all to authenticated
+using (public.app_is_admin() and workspace_id = public.app_workspace_id())
+with check (public.app_is_admin() and workspace_id = public.app_workspace_id());
+
+drop policy if exists "admin payment receipts" on payment_receipts;
+create policy "admin payment receipts" on payment_receipts
+for all to authenticated
+using (public.app_is_admin() and workspace_id = public.app_workspace_id())
+with check (public.app_is_admin() and workspace_id = public.app_workspace_id());
+
+drop policy if exists "admin other expenses" on other_expenses;
+create policy "admin other expenses" on other_expenses
+for all to authenticated
+using (public.app_is_admin() and workspace_id = public.app_workspace_id())
+with check (public.app_is_admin() and workspace_id = public.app_workspace_id());
+
+-- Admin + Employee can manage supplier rentals.
+drop policy if exists "staff supplier rentals" on equipment_rentals;
+create policy "staff supplier rentals" on equipment_rentals
+for all to authenticated
+using (
+  public.app_role() in ('admin','employee')
+  and workspace_id = public.app_workspace_id()
+)
+with check (
+  public.app_role() in ('admin','employee')
+  and workspace_id = public.app_workspace_id()
+);
+
+-- Admin + Employee can manage income from our own equipment hires.
+drop policy if exists "staff owned equipment hires" on owned_equipment_hires;
+create policy "staff owned equipment hires" on owned_equipment_hires
+for all to authenticated
+using (
+  public.app_role() in ('admin','employee')
+  and workspace_id = public.app_workspace_id()
+)
+with check (
+  public.app_role() in ('admin','employee')
+  and workspace_id = public.app_workspace_id()
+);
+
+-- Grant privileges for app_profiles and employee_invites
+grant select, insert, update, delete on table app_profiles to anon, authenticated;
+grant select, insert, update, delete on table employee_invites to anon, authenticated;
+grant all privileges on all tables in schema public to anon, authenticated;
+grant all privileges on all sequences in schema public to anon, authenticated;
+
+</div>
+    <button class="btn btn-sm" onclick="copySupabaseSql()"><i class="ti ti-copy"></i> Copy SQL</button>
+    <button class="btn btn-sm btn-primary" onclick="openSqlEditor()"><i class="ti ti-external-link"></i> Create Tables Now (opens SQL Editor)</button>
+    <div class="info-box" style="margin-top:.5rem"><i class="ti ti-bulb" style="font-size:16px;flex-shrink:0"></i>
+      <div>This script is safe to run as many times as you like &mdash; it only creates what's missing and won't touch or duplicate your existing data.</div>
+    </div>
+    <div class="info-box" style="margin-top:.7rem"><i class="ti ti-alert-triangle" style="font-size:16px;flex-shrink:0"></i>
+      <div>Profile access is enabled by the updated setup SQL. After migration, Supabase Auth + Row Level Security control access: Admin has full access; Employees can access only Supplier Rentals and Equipment Hire.</div>
+    </div>
+  </div>
+
+  <div id="pane-history" class="tab-content" style="display:none">
+    <div class="info-box" id="historyInfoBox"><i class="ti ti-info-circle" style="font-size:16px;flex-shrink:0"></i>
+      <div id="historyInfoText">Connect Supabase in the <strong>Cloud</strong> tab to save documents there &mdash; then every saved invoice is available on any browser or device using the same Workspace ID.</div>
+    </div>
+    <div class="history-search-wrap" style="margin-bottom:.65rem;position:relative">
+      <i class="ti ti-search" style="position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--text3);font-size:15px;pointer-events:none"></i>
+      <input id="historySearchInput" type="text" placeholder="Search by number, client, type, date..." oninput="filterHistoryList()" onkeyup="filterHistoryList()" onchange="filterHistoryList()" style="width:100%;padding:8px 30px 8px 34px;border:1px solid var(--border);border-radius:10px;background:var(--surface);color:var(--text);font-size:12.5px">
+      <button id="historySearchClear" type="button" onclick="clearHistorySearch()" title="Clear search" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);border:none;background:none;color:var(--text3);cursor:pointer;display:none;padding:3px;border-radius:4px"><i class="ti ti-x" style="font-size:14px"></i></button>
+    </div>
+    <div style="display:flex;gap:.4rem;margin-bottom:.75rem">
+      <button class="btn btn-sm" onclick="refreshHistoryList()" style="flex:1"><i class="ti ti-refresh"></i> Refresh</button>
+      <button class="btn btn-sm" onclick="exportBackup()" style="flex:1"><i class="ti ti-download"></i> Export Backup</button>
+      <button class="btn btn-sm" onclick="document.getElementById('importBackupInput').click()" style="flex:1"><i class="ti ti-upload"></i> Import Backup</button>
+      <input type="file" id="importBackupInput" accept="application/json" style="display:none" onchange="importBackup(this.files[0])">
+    </div>
+    <div id="historyList"></div>
+  </div>
+</aside>
+
+<main class="preview-pane"><div id="preview"></div></main>
+</div>
+
+<section id="managerView" class="manager-shell" style="display:none">
+  <div class="manager-head">
+    <div><div class="manager-title">Event Media Business Manager</div><div class="manager-sub">Invoices, payments, supplier rentals, equipment-hire income and cash-flow tracking — synced with your existing Supabase workspace.</div></div>
+    <div class="manager-actions"><span class="user-chip" id="managerUserChip"><i class="ti ti-user-circle"></i><strong id="managerUserName"></strong><span class="role-chip" id="managerUserRole"></span></span><button class="btn" onclick="loadManagerData()"><i class="ti ti-refresh"></i> Refresh</button><button class="btn admin-only" onclick="closeManager()"><i class="ti ti-arrow-left"></i> Invoice Generator</button><button class="btn" onclick="profileLogout()"><i class="ti ti-logout"></i> Logout</button></div>
+  </div>
+  <div id="managerConnectionAlert"></div>
+  <div class="manager-tabs">
+    <button class="manager-tab active admin-only" id="managerTab-dashboard" onclick="showManagerPane('dashboard')"><i class="ti ti-layout-dashboard"></i> Dashboard</button>
+    <button class="manager-tab admin-only" id="managerTab-invoices" class="manager-tab admin-only" onclick="showManagerPane('invoices')"><i class="ti ti-receipt"></i> Invoices</button>
+    <button class="manager-tab admin-only" id="managerTab-payments" class="manager-tab admin-only" onclick="showManagerPane('payments')"><i class="ti ti-receipt-tax"></i> Payment Received</button>
+    <button class="manager-tab" id="managerTab-rentals" onclick="showManagerPane('rentals')"><i class="ti ti-truck-delivery"></i> Supplier Rentals</button>
+    <button class="manager-tab" id="managerTab-equipmenthire" onclick="showManagerPane('equipmenthire')"><i class="ti ti-package-export"></i> Equipment Hire</button>
+    <button class="manager-tab admin-only" id="managerTab-finance" class="manager-tab admin-only" onclick="showManagerPane('finance')"><i class="ti ti-coins"></i> Finance</button>
+    <button class="manager-tab admin-only" id="managerTab-reports" class="manager-tab admin-only" onclick="showManagerPane('reports')"><i class="ti ti-chart-bar"></i> Reports</button>
+    <button class="manager-tab admin-only" id="managerTab-database" class="manager-tab admin-only" onclick="showManagerPane('database')"><i class="ti ti-database"></i> Database</button>
+    <button class="manager-tab admin-only" id="managerTab-profiles" onclick="showManagerPane('profiles')"><i class="ti ti-users"></i> Profiles</button>
+    <button class="manager-tab admin-only" id="managerTab-admin" onclick="showManagerPane('admin')"><i class="ti ti-shield-cog"></i> Admin</button>
+    <button class="manager-tab admin-only" id="managerTab-setup" class="manager-tab admin-only" onclick="showManagerPane('setup')"><i class="ti ti-database-cog"></i> Setup</button>
+  </div>
+
+  <div id="managerPane-dashboard">
+    <div class="manager-grid" id="managerMetrics"></div>
+    <div class="manager-two">
+      <div class="manager-card"><div class="manager-card-head"><div class="manager-card-title">Outstanding invoices</div><button class="btn btn-sm" onclick="showManagerPane('invoices')">View all</button></div><div id="dashboardInvoices"></div></div>
+      <div class="manager-card"><div class="manager-card-head"><div class="manager-card-title">Upcoming rental returns</div><button class="btn btn-sm" onclick="showManagerPane('rentals')">View all</button></div><div id="dashboardRentals"></div></div>
+    </div>
+  </div>
+
+  <div id="managerPane-invoices" style="display:none">
+    <div class="manager-card">
+      <div class="manager-card-head"><div class="manager-card-title">Invoice tracker</div><div class="manager-filterbar"><input id="managerInvoiceSearch" placeholder="Search invoice, client or event" oninput="renderManagerInvoices()"><select id="managerInvoiceStatus" onchange="renderManagerInvoices()"><option value="all">All statuses</option><option value="unpaid">Unpaid</option><option value="partial">Partially paid</option><option value="paid">Paid</option><option value="overdue">Overdue</option></select></div></div>
+      <div id="managerInvoiceTable"></div>
+    </div>
+  </div>
+
+  <div id="managerPane-payments" style="display:none">
+    <div class="manager-card">
+      <div class="manager-card-head">
+        <div>
+          <div class="manager-card-title">Payment Received register</div>
+          <div style="font-size:11.5px;color:var(--text3);margin-top:2px">Official customer payment receipts linked to invoices and cash-flow history.</div>
+        </div>
+        <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">
+          <button class="btn btn-primary" onclick="openPaymentReceiptModal()"><i class="ti ti-plus"></i> Record Payment Received</button>
+        </div>
+      </div>
+      <div class="manager-card-body">
+        <div class="manager-grid" id="managerPaymentMetrics"></div>
+        <div class="manager-filterbar" style="margin-bottom:1rem">
+          <input id="managerPaymentSearch" placeholder="Search receipt #, customer, invoice or reference" oninput="renderPaymentReceipts()">
+          <select id="managerPaymentMethodFilter" onchange="renderPaymentReceipts()">
+            <option value="all">All payment methods</option>
+            <option>Bank Transfer</option>
+            <option>Cash</option>
+            <option>Card</option>
+            <option>Cheque</option>
+            <option>Other</option>
+          </select>
+          <select id="managerPaymentCustomerFilter" onchange="renderPaymentReceipts()">
+            <option value="all">All customers</option>
+          </select>
+        </div>
+        <div id="managerPaymentTable"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="managerPane-rentals" style="display:none">
+    <div class="manager-card">
+      <div class="manager-card-head"><div class="manager-card-title" id="rentalFormTitle">Add supplier rental</div><button class="btn btn-sm" onclick="resetRentalForm()"><i class="ti ti-plus"></i> New</button></div>
+      <div class="manager-card-body">
+        <input type="hidden" id="rentalEditId">
+        <div class="manager-form">
+          <div><label>Supplier / Company *</label><input id="rentalSupplier" placeholder="e.g. ABC Audio (Pvt) Ltd"></div>
+          <div><label>Event</label><input id="rentalEvent" placeholder="Event name"></div>
+          <div class="wide2"><label>Equipment / Service *</label><input id="rentalItem" placeholder="e.g. 4 moving heads + controller"></div>
+          <div><label>Quantity</label><input id="rentalQty" type="number" min="1" value="1"></div>
+          <div><label>Rental / Pickup date *</label><input id="rentalDate" type="date"></div>
+          <div><label>Return / Due date</label><input id="rentalReturnDate" type="date"></div>
+          <div><label>Status</label><select id="rentalStatus"><option value="booked">Booked</option><option value="picked_up">Picked up</option><option value="returned">Returned</option><option value="paid">Paid</option><option value="cancelled">Cancelled</option></select></div>
+          <div><label>Total rental cost (LKR)</label><input id="rentalAmount" type="number" min="0" step="0.01" value="0"></div>
+          <div><label>Amount paid (LKR)</label><input id="rentalPaid" type="number" min="0" step="0.01" value="0"></div>
+          <div><label>Supplier contact</label><input id="rentalContact" placeholder="Phone / email"></div>
+          <div class="wide4"><label>Notes</label><textarea id="rentalNotes" placeholder="Deposit, pickup instructions, damage terms, etc."></textarea></div>
+        </div>
+        <div style="display:flex;gap:.5rem;justify-content:flex-end;margin-top:.8rem"><button class="btn" onclick="resetRentalForm()">Clear</button><button class="btn btn-primary" id="rentalSaveBtn" onclick="saveRental()"><i class="ti ti-device-floppy"></i> Save rental</button></div>
+      </div>
+    </div>
+    <div class="manager-card"><div class="manager-card-head"><div class="manager-card-title">Rental register</div><div class="manager-filterbar"><input id="managerRentalSearch" placeholder="Search supplier, item or event" oninput="renderRentals()"><select id="managerRentalStatus" onchange="renderRentals()"><option value="all">All statuses</option><option value="booked">Booked</option><option value="picked_up">Picked up</option><option value="returned">Returned</option><option value="paid">Paid</option><option value="cancelled">Cancelled</option></select></div></div><div id="managerRentalTable"></div></div>
+  </div>
+
+
+
+
+  <div id="managerPane-equipmenthire" style="display:none">
+    <div class="manager-card">
+      <div class="manager-card-head">
+        <div>
+          <div class="manager-card-title" id="equipmentHireFormTitle">Rent out our equipment</div>
+          <div style="font-size:11.5px;color:var(--text3);margin-top:2px">Use this when you earn money from your own equipment without issuing an invoice.</div>
+        </div>
+        <button class="btn btn-sm" onclick="resetEquipmentHireForm()"><i class="ti ti-plus"></i> New hire</button>
+      </div>
+      <div class="manager-card-body">
+        <input type="hidden" id="equipmentHireEditId">
+        <div class="manager-form">
+          <div><label>Customer / Company *</label><input id="equipmentHireCustomer" placeholder="Customer or company name"></div>
+          <div><label>Customer contact</label><input id="equipmentHireContact" placeholder="Phone / email"></div>
+          <div class="wide2"><label>Our equipment *</label><input id="equipmentHireItem" placeholder="e.g. 2 wireless microphones + receiver"></div>
+          <div><label>Quantity</label><input id="equipmentHireQty" type="number" min="1" value="1"></div>
+          <div><label>Event / Purpose</label><input id="equipmentHireEvent" placeholder="Optional event or purpose"></div>
+          <div><label>Hire / Pickup date *</label><input id="equipmentHireDate" type="date"></div>
+          <div><label>Return / Due date</label><input id="equipmentHireReturnDate" type="date"></div>
+          <div><label>Hire status</label><select id="equipmentHireStatus"><option value="booked">Booked</option><option value="out">Equipment out</option><option value="returned">Returned</option><option value="cancelled">Cancelled</option></select></div>
+          <div><label>Total hire charge (LKR) *</label><input id="equipmentHireAmount" type="number" min="0" step="0.01" value="0"></div>
+          <div><label>Amount received (LKR)</label><input id="equipmentHirePaid" type="number" min="0" step="0.01" value="0"></div>
+          <div><label>Payment method</label><select id="equipmentHireMethod"><option>Bank Transfer</option><option>Cash</option><option>Card</option><option>Cheque</option><option>Other</option></select></div>
+          <div><label>Reference</label><input id="equipmentHireReference" placeholder="Transfer / receipt reference"></div>
+          <div class="wide4"><label>Notes</label><textarea id="equipmentHireNotes" placeholder="Deposit, serial numbers, accessories, damage/return notes, etc."></textarea></div>
+        </div>
+        <div style="display:flex;gap:.5rem;justify-content:flex-end;margin-top:.8rem">
+          <button class="btn" onclick="resetEquipmentHireForm()">Clear</button>
+          <button class="btn btn-primary" id="equipmentHireSaveBtn" onclick="saveEquipmentHire()"><i class="ti ti-device-floppy"></i> Save equipment hire</button>
+        </div>
+      </div>
+    </div>
+    <div class="manager-grid" id="equipmentHireMetrics"></div>
+    <div class="manager-card">
+      <div class="manager-card-head">
+        <div class="manager-card-title">Our equipment hire register</div>
+        <div class="manager-filterbar">
+          <input id="equipmentHireSearch" placeholder="Search customer, equipment or event" oninput="renderEquipmentHires()">
+          <select id="equipmentHireFilter" onchange="renderEquipmentHires()"><option value="all">All hire statuses</option><option value="booked">Booked</option><option value="out">Equipment out</option><option value="returned">Returned</option><option value="cancelled">Cancelled</option></select>
+          <select id="equipmentHirePaymentFilter" onchange="renderEquipmentHires()"><option value="all">All payment statuses</option><option value="unpaid">Unpaid</option><option value="partial">Partially paid</option><option value="paid">Paid</option></select>
+        </div>
+      </div>
+      <div id="equipmentHireTable"></div>
+    </div>
+  </div>
+
+  <div id="managerPane-finance" style="display:none">
+    <div class="manager-card">
+      <div class="manager-card-head">
+        <div>
+          <div class="manager-card-title">Profit &amp; expense dashboard</div>
+          <div style="font-size:11.5px;color:var(--text3);margin-top:2px">Revenue minus rental expenses and other expenses.</div>
+        </div>
+        <div class="manager-filterbar">
+          <select id="financePeriod" onchange="onFinancePeriodChange()">
+            <option value="all">All time</option>
+            <option value="month">Selected month</option>
+          </select>
+          <input id="financeMonth" type="month" onchange="renderFinance()" style="display:none">
+        </div>
+      </div>
+      <div class="manager-card-body">
+        <div class="manager-grid" id="financeMetrics"></div>
+        <div id="financeFormula" class="report-highlight"></div>
+      </div>
+    </div>
+
+    <div class="manager-card">
+      <div class="manager-card-head"><div class="manager-card-title" id="expenseFormTitle">Add other expense</div><button class="btn btn-sm" onclick="resetExpenseForm()"><i class="ti ti-plus"></i> New</button></div>
+      <div class="manager-card-body">
+        <input type="hidden" id="expenseEditId">
+        <div class="manager-form">
+          <div><label>Date *</label><input id="expenseDate" type="date"></div>
+          <div><label>Category *</label><select id="expenseCategory"><option>Transport</option><option>Fuel</option><option>Food &amp; Staff</option><option>Accommodation</option><option>Marketing</option><option>Printing</option><option>Venue</option><option>Freelancers</option><option>Repairs &amp; Maintenance</option><option>Office</option><option>Utilities</option><option>Other</option></select></div>
+          <div class="wide2"><label>Description *</label><input id="expenseDescription" placeholder="e.g. Crew transport for corporate event"></div>
+          <div><label>Event</label><input id="expenseEvent" placeholder="Optional event name"></div>
+          <div><label>Amount (LKR) *</label><input id="expenseAmount" type="number" min="0" step="0.01" value="0"></div>
+          <div><label>Payment method</label><select id="expenseMethod"><option>Bank Transfer</option><option>Cash</option><option>Card</option><option>Cheque</option><option>Other</option></select></div>
+          <div><label>Reference</label><input id="expenseReference" placeholder="Receipt / transaction ref"></div>
+          <div class="wide4"><label>Notes</label><textarea id="expenseNotes" placeholder="Optional notes"></textarea></div>
+        </div>
+        <div style="display:flex;gap:.5rem;justify-content:flex-end;margin-top:.8rem"><button class="btn" onclick="resetExpenseForm()">Clear</button><button class="btn btn-primary" id="expenseSaveBtn" onclick="saveExpense()"><i class="ti ti-device-floppy"></i> Save expense</button></div>
+      </div>
+    </div>
+
+    <div class="manager-card">
+      <div class="manager-card-head"><div class="manager-card-title">Other expenses register</div><div class="manager-filterbar"><input id="managerExpenseSearch" placeholder="Search description, category or event" oninput="renderExpenses()"><select id="managerExpenseCategory" onchange="renderExpenses()"><option value="all">All categories</option><option>Transport</option><option>Fuel</option><option>Food &amp; Staff</option><option>Accommodation</option><option>Marketing</option><option>Printing</option><option>Venue</option><option>Freelancers</option><option>Repairs &amp; Maintenance</option><option>Office</option><option>Utilities</option><option>Other</option></select></div></div>
+      <div id="managerExpenseTable"></div>
+    </div>
+  </div>
+
+  <div id="managerPane-database" style="display:none">
+    <div class="manager-card">
+      <div class="manager-card-head">
+        <div>
+          <div class="manager-card-title">Database Viewer</div>
+          <div class="db-meta">Read-only view of the records stored in your current Supabase workspace.</div>
+        </div>
+        <div class="db-viewer-toolbar">
+          <select id="dbViewerTable" onchange="loadDatabaseViewer()">
+            <option value="invoice_documents">Invoices / Documents</option>
+            <option value="payment_receipts">Payment Receipts</option>
+            <option value="invoice_payments">Invoice Payments (Legacy)</option>
+            <option value="equipment_rentals">Supplier Rentals</option>
+            <option value="owned_equipment_hires">Our Equipment Hire Income</option>
+            <option value="other_expenses">Other Expenses</option>
+            <option value="invoice_app_state">App State</option>
+          </select>
+          <input id="dbViewerSearch" placeholder="Search current table" oninput="renderDatabaseViewer()">
+          <button class="btn btn-sm" onclick="loadDatabaseViewer()"><i class="ti ti-refresh"></i> Refresh</button>
+          <button class="btn btn-sm" onclick="exportDatabaseTableCSV()"><i class="ti ti-download"></i> CSV</button>
+        </div>
+      </div>
+      <div class="manager-card-body">
+        <div class="db-viewer-note"><strong>View only:</strong> this tab does not edit or delete Supabase records. Use the Invoices, Supplier Rentals, and Finance tabs for normal changes.</div>
+        <div id="dbViewerStatus" class="db-meta"></div>
+      </div>
+      <div id="dbViewerTableWrap"></div>
+    </div>
+  </div>
+
+  <div id="managerPane-reports" style="display:none">
+    <div class="manager-card"><div class="manager-card-head"><div class="manager-card-title">Monthly cash-flow report</div><div class="manager-filterbar"><input id="reportMonth" type="month" onchange="renderReports()"></div></div><div class="manager-card-body"><div class="manager-grid" id="reportMetrics"></div><div id="reportSummary" class="report-highlight"></div></div></div>
+    <div class="manager-card"><div class="manager-card-head"><div class="manager-card-title">Event profitability snapshot</div></div><div id="eventProfitTable"></div></div>
+  </div>
+
+
+  <div id="managerPane-profiles" class="admin-only" style="display:none">
+    <div class="manager-two">
+      <div class="manager-card">
+        <div class="manager-card-head"><div><div class="manager-card-title">Create employee profile</div><div style="font-size:11.5px;color:var(--text3);margin-top:2px">Only Admin can create employee accounts. The employee only receives login credentials.</div></div></div>
+        <div class="manager-card-body">
+          <div class="manager-form">
+            <div><label>Employee name *</label><input id="newEmployeeName" placeholder="e.g. Nimal Perera"></div>
+            <div><label>Employee email *</label><input id="newEmployeeEmail" type="email" placeholder="employee@company.com"></div>
+            <div><label>Temporary password *</label><input id="newEmployeePassword" type="text" placeholder="Minimum 6 characters"></div>
+            <div><label>Access</label><input value="Supplier Rentals + Equipment Hire only" disabled></div>
+          </div>
+          <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;margin-top:.7rem">
+            <button class="btn" onclick="generateEmployeePassword()"><i class="ti ti-key"></i> Generate password</button>
+            <button class="btn btn-primary" onclick="adminCreateEmployeeAccount()"><i class="ti ti-user-plus"></i> Create employee account</button>
+          </div>
+          <div id="employeeCreateResult"></div>
+          <button class="btn btn-sm" style="margin-top:.55rem" onclick="showAdminSessionDiagnostics()"><i class="ti ti-bug"></i> Check Admin Session</button>
+          <div class="auth-note">Employee creation uses the secure Supabase <strong>create-employee</strong> Edge Function. The service-role key stays on Supabase and is never stored in this HTML file.</div>
+        </div>
+      </div>
+      <div class="manager-card">
+        <div class="manager-card-head"><div><div class="manager-card-title">Access rules</div><div style="font-size:11.5px;color:var(--text3);margin-top:2px">Permissions are enforced by Supabase RLS. Role/disable changes are sent through a protected server-side Edge Function.</div></div></div>
+        <div class="manager-card-body" style="font-size:12.5px;color:var(--text2);line-height:1.75">
+          <strong style="color:var(--text)">Admin:</strong> Invoice Generator, Dashboard, Invoices, Payment Received, Supplier Rentals, Equipment Hire, Finance, Reports, Database, Admin and Profiles.<br>
+          <strong style="color:var(--text)">Employee:</strong> Sign-in only. Supplier Rentals and Equipment Hire only. No account creation, invoice, payment, finance, report, database or admin access.
+        </div>
+      </div>
+    </div>
+    <div class="manager-card">
+      <div class="manager-card-head"><div class="manager-card-title">Team profiles</div><button class="btn btn-sm" onclick="loadProfiles()"><i class="ti ti-refresh"></i> Refresh</button></div>
+      <div id="profilesList"></div>
+    </div>
+  </div>
+
+  <div id="managerPane-admin" style="display:none">
+    <div class="manager-card">
+      <div class="manager-card-head">
+        <div>
+          <div class="manager-card-title">Database Admin</div>
+          <div class="db-meta">Edit or delete records in your current Supabase workspace.</div>
+        </div>
+        <div class="db-viewer-toolbar">
+          <select id="adminTable" onchange="loadAdminTable()">
+            <option value="invoice_documents">Invoices / Documents</option>
+            <option value="payment_receipts">Payment Receipts</option>
+            <option value="invoice_payments">Invoice Payments (Legacy)</option>
+            <option value="equipment_rentals">Supplier Rentals</option>
+            <option value="owned_equipment_hires">Our Equipment Hire Income</option>
+            <option value="other_expenses">Other Expenses</option>
+            <option value="invoice_app_state">App State</option>
+          </select>
+          <input id="adminSearch" placeholder="Search records" oninput="renderAdminTable()">
+          <button class="btn btn-sm" onclick="loadAdminTable()"><i class="ti ti-refresh"></i> Refresh</button>
+        </div>
+      </div>
+      <div class="manager-card-body">
+        <div class="admin-warning"><strong>Admin access:</strong> changes here are written directly to Supabase. Use the normal Invoices, Supplier Rentals and Finance tabs whenever possible. The record ID and Workspace ID are protected from editing.</div>
+        <div id="adminStatus" class="db-meta"></div>
+      </div>
+      <div id="adminTableWrap"></div>
+    </div>
+  </div>
+
+  <div id="managerPane-setup" style="display:none">
+    <div class="manager-card"><div class="manager-card-head"><div class="manager-card-title">Database setup / upgrade</div></div><div class="manager-card-body">
+      <div class="manager-alert">Run this SQL once in your existing Supabase project. It keeps your current invoice data and adds payment tracking, supplier rentals, equipment-hire income, and other-expense tracking. It is safe to run again later.</div>
+      <div class="code-block" id="managerSqlCode" style="max-height:420px;overflow:auto"></div>
+      <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.7rem"><button class="btn btn-primary" onclick="copyManagerSql()"><i class="ti ti-copy"></i> Copy setup SQL</button><button class="btn" onclick="openManagerSqlEditor()"><i class="ti ti-external-link"></i> Open Supabase SQL Editor</button><button class="btn" onclick="testManagerSchema()"><i class="ti ti-plug"></i> Test manager tables</button></div>
+      <div id="managerSetupStatus" style="margin-top:.7rem"></div>
+    </div></div>
+  </div>
+</section>
+
+<!-- Dedicated Payment Received Form Modal -->
+<div id="paymentReceiptModal" class="manager-modal" onclick="if(event.target===this)closePaymentReceiptModal()">
+  <div class="manager-modal-box" style="max-width:680px">
+    <div class="manager-modal-head">
+      <div>
+        <div class="manager-modal-title" id="paymentReceiptModalTitle">Record Payment Received</div>
+        <div class="db-meta" id="paymentReceiptModalSub">Create a verified payment receipt against a customer invoice.</div>
+      </div>
+      <button class="btn-icon" onclick="closePaymentReceiptModal()"><i class="ti ti-x"></i></button>
+    </div>
+    <input type="hidden" id="paymentReceiptEditId">
+    <div class="manager-form" style="grid-template-columns:1fr 1fr;gap:.75rem">
+      <div>
+        <label>Receipt Number *</label>
+        <div style="display:flex;gap:4px">
+          <input id="paymentReceiptDocNum" placeholder="PR-2026-0001" style="font-weight:700">
+          <button type="button" class="btn btn-sm" onclick="regenerateReceiptNumber()" title="Generate next number"><i class="ti ti-refresh"></i></button>
+        </div>
+      </div>
+      <div>
+        <label>Payment Date *</label>
+        <input id="paymentReceiptDate" type="date">
+      </div>
+      <div>
+        <label>Customer *</label>
+        <select id="paymentReceiptCustomer" onchange="onPaymentReceiptCustomerChange()">
+          <option value="">Select customer...</option>
+        </select>
+      </div>
+      <div>
+        <label>Against Invoice *</label>
+        <select id="paymentReceiptInvoice" onchange="onPaymentReceiptInvoiceChange()">
+          <option value="">Select invoice...</option>
+        </select>
+      </div>
+      <div class="wide2">
+        <label>Event / Project</label>
+        <input id="paymentReceiptEvent" placeholder="Event / project name">
+      </div>
+      <div class="wide2">
+        <div class="receipt-balance-cards">
+          <div class="receipt-balance-card">
+            <div class="balance-card-label">Invoice Total</div>
+            <div class="balance-card-val" id="receiptCardTotal">Rs. 0.00</div>
+          </div>
+          <div class="receipt-balance-card">
+            <div class="balance-card-label">Previously Received</div>
+            <div class="balance-card-val" id="receiptCardPaid">Rs. 0.00</div>
+          </div>
+          <div class="receipt-balance-card highlight">
+            <div class="balance-card-label">Outstanding Balance</div>
+            <div class="balance-card-val" id="receiptCardBalance">Rs. 0.00</div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <label>Amount Received (LKR) *</label>
+        <input id="paymentReceiptAmount" type="number" min="0.01" step="0.01" placeholder="0.00" oninput="onPaymentReceiptAmountInput()" style="font-size:15px;font-weight:700">
+      </div>
+      <div>
+        <label>Payment Method *</label>
+        <select id="paymentReceiptMethod" onchange="onPaymentReceiptMethodChange()">
+          <option>Bank Transfer</option>
+          <option>Cash</option>
+          <option>Card</option>
+          <option>Cheque</option>
+          <option>Other</option>
+        </select>
+      </div>
+      <div class="wide2" id="paymentReceiptOverpayAlert" style="display:none"></div>
+      <div>
+        <label>Transaction / Reference Number</label>
+        <input id="paymentReceiptReference" placeholder="e.g. TXN123456 / Cheque No.">
+      </div>
+      <div>
+        <label>Bank / Account</label>
+        <input id="paymentReceiptBank" placeholder="e.g. Seylan Bank, Maharagama">
+      </div>
+      <div class="wide2">
+        <label>Notes / Remarks</label>
+        <textarea id="paymentReceiptNotes" placeholder="Payment received with thanks / special terms..."></textarea>
+      </div>
+    </div>
+    <div style="display:flex;justify-content:flex-end;gap:.5rem;margin-top:1rem;border-top:1px solid var(--border);padding-top:.8rem">
+      <button class="btn" onclick="closePaymentReceiptModal()">Cancel</button>
+      <button class="btn btn-primary" id="savePaymentReceiptBtn" onclick="savePaymentReceipt()"><i class="ti ti-device-floppy"></i> Save Payment Received</button>
+    </div>
+  </div>
+</div>
+
+<!-- Printable / PDF Payment Receipt Document Viewer Modal -->
+<div id="receiptDocModal" class="manager-modal" onclick="if(event.target===this)closeReceiptDocModal()">
+  <div class="manager-modal-box" style="max-width:780px;padding:0;background:transparent;box-shadow:none;border:none">
+    <div class="receipt-viewer-toolbar">
+      <div style="display:flex;align-items:center;gap:8px">
+        <i class="ti ti-receipt-tax" style="font-size:18px;color:#fff"></i>
+        <strong style="color:#fff;font-size:14px" id="receiptDocToolbarTitle">Payment Receipt</strong>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center">
+        <button class="btn btn-sm btn-primary" onclick="printPaymentReceipt()"><i class="ti ti-printer"></i> Print</button>
+        <button class="btn btn-sm btn-info" id="receiptPdfBtn" onclick="downloadPaymentReceiptPDF()"><i class="ti ti-file-type-pdf"></i> PDF</button>
+        <button class="btn btn-sm" onclick="downloadPaymentReceiptPNG()"><i class="ti ti-photo-down"></i> PNG</button>
+        <button class="btn btn-sm" onclick="closeReceiptDocModal()"><i class="ti ti-x"></i> Close</button>
+      </div>
+    </div>
+    <div id="receiptDocContainer" style="overflow-y:auto;max-height:calc(90vh - 60px);display:flex;justify-content:center;padding:10px 0">
+      <!-- Dynamic Receipt Document HTML rendered here -->
+    </div>
+  </div>
+</div>
+
+<!-- Invoice Payment History Modal -->
+<div id="invoiceHistoryModal" class="manager-modal" onclick="if(event.target===this)closeInvoiceHistoryModal()">
+  <div class="manager-modal-box" style="max-width:740px">
+    <div class="manager-modal-head">
+      <div>
+        <div class="manager-modal-title" id="invoiceHistoryTitle">Invoice Payment History</div>
+        <div class="db-meta" id="invoiceHistorySub">Breakdown of all payments received against this invoice.</div>
+      </div>
+      <button class="btn-icon" onclick="closeInvoiceHistoryModal()"><i class="ti ti-x"></i></button>
+    </div>
+    <div id="invoiceHistoryBody"></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:1rem;padding-top:.8rem;border-top:1px solid var(--border)">
+      <button class="btn btn-primary" id="invoiceHistoryAddPaymentBtn" onclick="openPaymentFromHistory()"><i class="ti ti-plus"></i> Add Payment</button>
+      <button class="btn" onclick="closeInvoiceHistoryModal()">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Legacy Payment Modal wrapper to maintain backwards compatibility -->
+<div id="paymentModal" class="manager-modal" onclick="if(event.target===this)closePaymentModal()">
+  <div class="manager-modal-box">
+    <div class="manager-modal-head"><div class="manager-modal-title">Record invoice payment</div><button class="btn-icon" onclick="closePaymentModal()"><i class="ti ti-x"></i></button></div>
+    <input type="hidden" id="paymentInvoiceId">
+    <div id="paymentInvoiceInfo" style="font-size:12.5px;color:var(--text2);margin-bottom:.8rem"></div>
+    <div class="manager-form" style="grid-template-columns:1fr 1fr">
+      <div><label>Amount (LKR) *</label><input id="paymentAmount" type="number" min="0.01" step="0.01"></div>
+      <div><label>Payment date *</label><input id="paymentDate" type="date"></div>
+      <div><label>Method</label><select id="paymentMethod"><option>Bank Transfer</option><option>Cash</option><option>Cheque</option><option>Card</option><option>Other</option></select></div>
+      <div><label>Reference</label><input id="paymentReference" placeholder="Bank ref / cheque no."></div>
+      <div class="wide2"><label>Notes</label><textarea id="paymentNotes" placeholder="Optional note"></textarea></div>
+    </div>
+    <div style="display:flex;justify-content:flex-end;gap:.5rem;margin-top:.8rem"><button class="btn" onclick="closePaymentModal()">Cancel</button><button class="btn btn-primary" onclick="saveInvoicePayment()"><i class="ti ti-cash"></i> Save payment</button></div>
+  </div>
+</div>
+
+<script src="script.js"></script>
+<script src="features.js"></script>
+<script src="features2.js"></script>
+<script src="v4-modern.js"></script>
+<script id="v5-module-bootstrap" type="module" src="src/main.js"></script>
+</body>
+</html>
