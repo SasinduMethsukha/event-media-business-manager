@@ -6,7 +6,7 @@
 <title>Event Media OS – Business & Invoice System</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -52,17 +52,18 @@
 </div>
 
 <div class="topbar">
-  <div class="brand"><i class="ti ti-bolt"></i><span class="brand-copy"><span class="brand-text">Event Media</span><small>Business OS</small></span></div>
+  <div class="brand"><i class="ti ti-chart-dots-3"></i><span class="brand-copy"><span class="brand-text">Event Media</span><small>Business OS</small></span></div>
   <div class="topbar-right">
+    <a href="landing.html" target="_blank" class="btn btn-sm" title="View ShopWave Landing Page"><i class="ti ti-browser"></i> ShopWave Tour</a>
     <span class="user-chip" id="topUserChip" style="display:none"><i class="ti ti-user-circle"></i><strong id="topUserName"></strong><span class="role-chip" id="topUserRole"></span></span>
     <button class="btn btn-sm" id="logoutBtn" style="display:none" onclick="profileLogout()"><i class="ti ti-logout"></i> Logout</button>
-    <button class="btn btn-sm btn-primary" onclick="openManager()" id="managerTopBtn" style="color:#ffffff!important"><i class="ti ti-layout-dashboard" style="color:#ffffff!important"></i> Business Manager</button>
+    <button class="btn btn-sm btn-primary" onclick="openManager()" id="managerTopBtn"><i class="ti ti-layout-dashboard"></i> Business Manager</button>
     <button class="btn btn-sm" onclick="toggleTheme()" id="themeBtn"><i class="ti ti-moon"></i> Dark</button>
-    <button class="btn btn-sm btn-success" onclick="saveCurrentDoc()" id="saveDocBtn" style="color:#ffffff!important"><i class="ti ti-device-floppy" style="color:#ffffff!important"></i> Save</button>
+    <button class="btn btn-sm btn-success" onclick="saveCurrentDoc()" id="saveDocBtn"><i class="ti ti-device-floppy"></i> Save</button>
     <button class="btn btn-sm" onclick="window.print()"><i class="ti ti-printer"></i> Print</button>
-    <button class="btn btn-sm btn-info" onclick="downloadPNG()" style="color:#ffffff!important"><i class="ti ti-photo-down" style="color:#ffffff!important"></i> PNG</button>
-    <button class="btn btn-sm btn-primary" id="pdfBtn" onclick="downloadPDF()" style="color:#ffffff!important"><i class="ti ti-file-type-pdf" style="color:#ffffff!important"></i> PDF</button>
-    <button class="btn btn-sm btn-success" onclick="exportCSV()" style="color:#ffffff!important"><i class="ti ti-download" style="color:#ffffff!important"></i> CSV</button>
+    <button class="btn btn-sm btn-info" onclick="downloadPNG()"><i class="ti ti-photo-down"></i> PNG</button>
+    <button class="btn btn-sm btn-primary" id="pdfBtn" onclick="downloadPDF()"><i class="ti ti-file-type-pdf"></i> PDF</button>
+    <button class="btn btn-sm btn-success" onclick="exportCSV()"><i class="ti ti-download"></i> CSV</button>
   </div>
 </div>
 
@@ -832,6 +833,156 @@ grant all privileges on all sequences in schema public to anon, authenticated;
   </div>
 
   <div id="managerPane-dashboard">
+    <!-- ShopWave Interactive Showcase Hero Section -->
+    <div class="shopwave-hero-card">
+      <div class="shopwave-hero-grid">
+        <!-- Left Hero Column -->
+        <div class="shopwave-hero-content">
+          <div class="shopwave-yc-badge">
+            <span class="yc-logo">Y</span>
+            <span>Backed by Y Combinator</span>
+          </div>
+          <h1 class="shopwave-hero-heading">
+            Streamline Sales,<br>
+            <span>Maximize Growth</span>
+          </h1>
+          <p class="shopwave-hero-desc">
+            Take control of your operations with our intuitive dashboard. Track, analyze, and optimize every aspect of your business effortlessly.
+          </p>
+          <div class="shopwave-hero-actions">
+            <button class="btn btn-primary shopwave-pill-btn" onclick="showManagerPane('invoices')">
+              Request a Demo
+            </button>
+            <button class="btn shopwave-ghost-btn" onclick="showManagerPane('reports')">
+              <span class="shopwave-play-icon">▶</span> Watch Demo
+            </button>
+          </div>
+        </div>
+
+        <!-- Right Hero Column: Layered Dashboard Mockup -->
+        <div class="shopwave-mockup-wrapper">
+          <div class="shopwave-mockup-stage">
+            <!-- Floating Pill: Spain -->
+            <div class="shopwave-floating-pill pill-spain">
+              <span class="flag-icon">🇪🇸</span>
+              <div>
+                <div class="pill-country">Spain</div>
+                <div class="pill-metric">1.2k products</div>
+              </div>
+            </div>
+
+            <!-- Floating Pill: France -->
+            <div class="shopwave-floating-pill pill-france">
+              <span class="flag-icon">🇫🇷</span>
+              <div>
+                <div class="pill-country">France</div>
+                <div class="pill-metric">3.6k products</div>
+              </div>
+            </div>
+
+            <!-- Floating Dropdown: Handle multiple store -->
+            <div class="shopwave-store-dropdown">
+              <div class="store-dropdown-header">
+                <span class="store-grid-icon">::</span> Handle multiple store
+              </div>
+              <div class="store-item active">
+                <span class="store-item-dot" style="background:#f59e0b"></span> Fashion Hive
+              </div>
+              <div class="store-item">
+                <span class="store-item-dot" style="background:#ef4444"></span> HealthMart
+              </div>
+              <div class="store-item">
+                <span class="store-item-dot" style="background:#3b82f6"></span> TechNest
+              </div>
+            </div>
+
+            <!-- Floating Badge: Store Manager -->
+            <div class="shopwave-manager-badge">
+              <span class="manager-tag">Store Manager</span>
+              <div class="manager-avatar">
+                <img src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=120&auto=format&fit=crop&q=80" alt="Store Manager">
+              </div>
+            </div>
+
+            <!-- Floating User Badge (Bottom-Left) -->
+            <div class="shopwave-user-badge">
+              <div class="user-avatar-ring">
+                <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80" alt="Avatar">
+                <span class="store-badge-icon"><i class="ti ti-building-store"></i></span>
+              </div>
+            </div>
+
+            <!-- Central Chart Card -->
+            <div class="shopwave-chart-card">
+              <div class="chart-y-axis">
+                <span>$25k</span>
+                <span>$20k</span>
+                <span>$15k</span>
+                <span>$10k</span>
+                <span>$5k</span>
+                <span>$0</span>
+              </div>
+              <div class="chart-bars-container">
+                <!-- Grid Lines -->
+                <div class="chart-grid-line" style="bottom: 0%"></div>
+                <div class="chart-grid-line" style="bottom: 20%"></div>
+                <div class="chart-grid-line" style="bottom: 40%"></div>
+                <div class="chart-grid-line" style="bottom: 60%"></div>
+                <div class="chart-grid-line" style="bottom: 80%"></div>
+                <div class="chart-grid-line" style="bottom: 100%"></div>
+
+                <!-- Month 1 -->
+                <div class="chart-bar-group">
+                  <div class="chart-bar-track">
+                    <div class="chart-bar-fill bar-1" style="height: 65%;"></div>
+                  </div>
+                  <span class="chart-month-label">Month 1</span>
+                </div>
+
+                <!-- Month 2 -->
+                <div class="chart-bar-group">
+                  <div class="chart-bar-track">
+                    <div class="chart-bar-fill bar-2" style="height: 38%;"></div>
+                  </div>
+                  <span class="chart-month-label">Month 2</span>
+                </div>
+
+                <!-- Month 3 (Active Pin) -->
+                <div class="chart-bar-group">
+                  <div class="chart-bar-track active">
+                    <div class="chart-pin-indicator"></div>
+                    <div class="chart-bar-fill bar-3" style="height: 78%;"></div>
+                  </div>
+                  <span class="chart-month-label active">Month 3</span>
+                </div>
+
+                <!-- Month 4 -->
+                <div class="chart-bar-group">
+                  <div class="chart-bar-track">
+                    <div class="chart-bar-fill bar-4" style="height: 52%;"></div>
+                  </div>
+                  <span class="chart-month-label">Month 4</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Social Proof Footer Banner -->
+      <div class="shopwave-proof-bar">
+        <div class="proof-label">Trusted by 312k+ ecommerce and 12k+ shop owners like</div>
+        <div class="proof-logos">
+          <span class="proof-logo logo-orvis">ORVIS</span>
+          <span class="proof-logo logo-landsend">LANDS' END</span>
+          <span class="proof-logo logo-officedepot">Office DEPOT</span>
+          <span class="proof-logo logo-petsmart">PETsMART</span>
+          <span class="proof-logo logo-costco">COSTCO</span>
+          <span class="proof-logo logo-walmart">Walmart<span class="spark">✻</span></span>
+        </div>
+      </div>
+    </div>
+
     <div class="manager-grid" id="managerMetrics"></div>
     <div class="manager-two">
       <div class="manager-card"><div class="manager-card-head"><div class="manager-card-title">Outstanding invoices</div><button class="btn btn-sm" onclick="showManagerPane('invoices')">View all</button></div><div id="dashboardInvoices"></div></div>
