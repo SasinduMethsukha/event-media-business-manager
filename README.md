@@ -30,3 +30,20 @@ Keep all three files in the same folder when hosting the site.
 4. Disable public Auth sign-ups after initial bootstrap.
 5. Keep only the publishable/anon key in browser code; never deploy a service-role key.
 6. Test Admin and Employee access separately before production.
+
+
+# v5 architecture
+
+The project now has a tidy modular architecture under `src/`, a documented privileged backend boundary under `server/`, and versioned Supabase security migrations under `supabase/migrations/`.
+
+The original implementation is retained under `legacy/` during the migration period. New code must not add features to `legacy/script.js`, `legacy/features.js`, or `legacy/features2.js`.
+
+See:
+- `docs/ARCHITECTURE.md`
+- `docs/SECURITY-CHECKLIST.md`
+- `server/README.md`
+- `supabase/migrations/202610040001_v5_security.sql`
+
+## Migration rule
+
+Move one feature at a time from `legacy/` into `src/features/`. Once a feature has parity tests and production validation, remove its legacy implementation.
