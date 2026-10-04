@@ -1,17 +1,26 @@
 import { assertClientConfig } from './config.js';
 import { authService } from '../auth/auth.service.js';
-import { store } from '../state/store.js';
+import { restoreAuth, signInFromUI, signOutFromUI, createFirstAdminFromUI } from '../auth/ui-controller.js';
 
 export async function boot() {
   assertClientConfig();
 
-  const session = await authService.currentUser().catch(() => null);
-  store.patch({ user: session });
+  // These global functions preserve the existing HTML contract while the
+  // implementation moves into modules.
+  window.profileSignIn = signInFromUI;
+  window.profileLogout = signOutFromUI;
+  window.profileCreateAdmin = createFirstAdminFromUI;
 
-  authService.onAuthStateChange((_event, session) => {
-    store.patch({ user: session });
-    window.dispatchEvent(new CustomEvent('app:auth', { detail: { session } }));
+  await restoreAuth();
+
+  authService.onAuthStateChange(async (_event, session) => {
+    if (!session) {
+      window.dispatchEvent(new CustomEvent('app:auth',{detail:{session:null}}));
+      return;
+    }
+    await restoreAuth();
+    window.dispatchEvent(new CustomEvent('app:auth',{detail:{session}}));
   });
 
-  document.documentElement.dataset.appReady = 'true';
+  document.documentElement.dataset.appReady='true';
 }

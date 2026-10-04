@@ -47,3 +47,37 @@ See:
 ## Migration rule
 
 Move one feature at a time from `legacy/` into `src/features/`. Once a feature has parity tests and production validation, remove its legacy implementation.
+
+
+## v5 module migration completed: Auth + Dashboard + Database
+
+### Authentication
+The browser login contract (`profileSignIn`, `profileLogout`, `profileCreateAdmin`) is
+now backed by `src/auth/auth.service.js` and Supabase Auth. Sessions are restored
+through Supabase rather than a custom token store. Profile/role/workspace are
+resolved from `app_profiles`.
+
+### Database access
+New application code uses:
+- `src/api/supabase.js` — single Supabase client
+- `src/api/repository.js` — validated repository boundary
+- `src/api/dashboard.repository.js` — dashboard data contract
+
+New features should not call `/rest/v1` directly.
+
+### Dashboard
+`src/features/dashboard/dashboard.js` and `src/services/dashboard.service.js`
+load dashboard data through the repository layer and publish a `dashboard:loaded`
+model. Existing v4 visualizations can consume this model without moving business
+logic back into the legacy script.
+
+### Database migration
+Run:
+`supabase/migrations/202610040002_auth_dashboard_db.sql`
+
+This adds self-profile access and workspace-scoped read policies required by the
+new modules.
+
+### Migration boundary
+The remaining invoice editor, manager CRUD, reports, crew, equipment and other
+legacy behavior stays under `legacy/`. They are not part of this migration step.
