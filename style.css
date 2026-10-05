@@ -765,3 +765,40 @@ input:focus,select:focus,textarea:focus{border-color:rgba(217,50,41,.7)!importan
   .receipt-doc-paper {box-shadow:none!important;border-radius:0!important;max-width:100%!important;width:100%!important}
 }
 
+/* Quotation Revisions, Additional & Removed Items */
+.cat-block-additional {
+  border-left: 4px solid #16a34a !important;
+}
+.cat-block-removed {
+  border-left: 4px solid #dc2626 !important;
+  background: rgba(220, 38, 38, 0.02) !important;
+}
+.cat-type-select {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 6px;
+  border-radius: 6px;
+  border: 1px solid var(--border2);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  max-width: 140px;
+}
+.cat-type-select option[value="additional"] {
+  color: #16a34a;
+  font-weight: 600;
+}
+.cat-type-select option[value="removed"] {
+  color: #dc2626;
+  font-weight: 600;
+}
+.doc-item-removed {
+  background: rgba(220, 38, 38, 0.03);
+}
+.doc-item-removed span:first-child {
+  text-decoration: line-through;
+  color: #991b1b;
+  opacity: 0.85;
+}
+
+

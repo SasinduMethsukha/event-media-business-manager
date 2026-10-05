@@ -73,9 +73,19 @@ function renderQuotes(){
   var q=FX.quotes,won=q.filter(function(x){return x.quote_status==='accepted'||x.quote_status==='converted';}),dec=q.filter(function(x){return x.quote_status!=='draft'&&x.quote_status!=='sent';});
   var val=function(a){return a.reduce(function(s,x){return s+Number(x.grand_total||0);},0);};
   $('qMetrics').innerHTML='<strong>'+q.length+'</strong> quotations · open value <strong>'+managerMoney(val(q.filter(function(x){return x.quote_status==='draft'||x.quote_status==='sent';})))+'</strong> · won value <strong>'+managerMoney(val(won))+'</strong> · win rate <strong>'+(dec.length?Math.round(100*won.length/dec.length)+'%':'—')+'</strong>';
-  $('qList').innerHTML=q.length?'<div class="manager-table-wrap"><table class="manager-table"><thead><tr><th>Quote</th><th>Client / Event</th><th>Total</th><th>Status</th><th>Actions</th></tr></thead><tbody>'+q.map(function(x){return '<tr><td>'+esc(x.doc_number)+'</td><td>'+esc(x.client_name)+'<br><small>'+esc(x.event_name||'')+'</small></td><td>'+managerMoney(x.grand_total)+'</td><td><select onchange="fxQuoteStatus(\''+x.id+'\',this.value)">'+QS.map(function(s){return '<option'+(s===(x.quote_status||'draft')?' selected':'')+'>'+s+'</option>';}).join('')+'</select>'+(x.converted_to?'<br><small>→ '+esc(x.converted_to)+'</small>':'')+'</td><td><button class="btn btn-sm btn-primary" onclick="fxConvert(\''+x.id+'\')">Convert to Invoice</button></td></tr>';}).join('')+'</tbody></table></div>':'<div class="manager-empty">Save a Quotation from the generator and it appears here.</div>';
+  $('qList').innerHTML=q.length?'<div class="manager-table-wrap"><table class="manager-table"><thead><tr><th>Quote</th><th>Client / Event</th><th>Total</th><th>Status</th><th>Actions</th></tr></thead><tbody>'+q.map(function(x){return '<tr><td>'+esc(x.doc_number)+'</td><td>'+esc(x.client_name)+'<br><small>'+esc(x.event_name||'')+'</small></td><td>'+managerMoney(x.grand_total)+'</td><td><select onchange="fxQuoteStatus(\''+x.id+'\',this.value)">'+QS.map(function(s){return '<option'+(s===(x.quote_status||'draft')?' selected':'')+'>'+s+'</option>';}).join('')+'</select>'+(x.converted_to?'<br><small>→ '+esc(x.converted_to)+'</small>':'')+'</td><td><div style="display:flex;gap:4px"><button class="btn btn-sm" onclick="fxReviseQuote(\''+x.id+'\')" title="Create revision from this quotation"><i class="ti ti-git-branch"></i> Revise</button><button class="btn btn-sm btn-primary" onclick="fxConvert(\''+x.id+'\')">Convert to Invoice</button></div></td></tr>';}).join('')+'</tbody></table></div>':'<div class="manager-empty">Save a Quotation from the generator and it appears here.</div>';
 }
 window.fxQuoteStatus=async function(id,s){try{await send('invoice_documents','PATCH',{quote_status:s},id);loadQuotes();}catch(e){alert(e.message);}};
+window.fxReviseQuote=async function(id){
+  var q=FX.quotes.find(function(x){return x.id===id;});
+  closeManager();await loadSavedDoc(id);
+  var curNum=gv('docNum')||(q?q.doc_number:'');
+  var revNum=(typeof bumpDocRevision==='function')?bumpDocRevision(curNum):(curNum+'-Rev1');
+  document.getElementById('docNum').value=revNum;
+  docNumManual=true;
+  render();
+  alert('Quotation '+(curNum||'')+' loaded as Revision '+revNum+'.\n\nMake your changes (add or remove items) and press Save to keep both versions.');
+};
 window.fxConvert=async function(id){
   var q=FX.quotes.find(function(x){return x.id===id;});
   closeManager();await loadSavedDoc(id);setDocType('Invoice');

@@ -315,6 +315,36 @@ function setStartingNumber() {
   try { localStorage.setItem(docSeqKey(type), String(num)); } catch (e) {}
   if (!docNumManual) regenerateDocNum();
 }
+function bumpDocRevision(docNum) {
+  var num = (docNum !== undefined ? docNum : (gv('docNum') || '')).trim();
+  if (!num) return num;
+
+  var revMatch = num.match(/[-_ ](?:rev|r)(\d+)$/i);
+  if (revMatch) {
+    var currentRev = parseInt(revMatch[1], 10);
+    var nextRev = currentRev + 1;
+    var base = num.slice(0, revMatch.index);
+    var matchedText = num.slice(revMatch.index);
+    var separator = matchedText.charAt(0);
+    var isR = /^[-_ ]r\d+$/i.test(matchedText) && !/^[-_ ]rev/i.test(matchedText);
+    return base + separator + (isR ? 'R' : 'Rev') + nextRev;
+  }
+
+  return num + '-Rev1';
+}
+function createDocRevision() {
+  var el = document.getElementById('docNum');
+  var currentNum = (el ? el.value : '').trim();
+  if (!currentNum) {
+    alert('Please enter or generate a document number first.');
+    return;
+  }
+  var newNum = bumpDocRevision(currentNum);
+  if (el) el.value = newNum;
+  docNumManual = true;
+  render();
+  alert('Revision document number set to: ' + newNum + '\n\nEdit your items (add or remove items) and press Save. The original document (' + currentNum + ') remains intact in your database.');
+}
 function toggleField(id, show) { document.getElementById(id).style.display = show ? '' : 'none'; }
 
 // ── LOGO ──
@@ -346,21 +376,107 @@ function clearLogo() {
 // ── CATEGORIES ──
 function addCategory(data) {
   var id = catId++;
-  var color = CAT_COLORS[cats.length % CAT_COLORS.length];
+  var type = (data && data.type) ? data.type : 'standard';
+  var defaultColor = type === 'removed' ? '#dc2626' : (type === 'additional' ? '#16a34a' : CAT_COLORS[cats.length % CAT_COLORS.length]);
+  var color = (data && data.color) ? data.color : defaultColor;
+  var defaultName = type === 'removed' ? 'Removed Items' : (type === 'additional' ? 'Additional Items' : 'New Category');
+  var name = (data && data.name) ? data.name : defaultName;
+
+  var itemsList = [{desc:'',tag:'General',qty:1,unit:0,days:1,multiDay:false,showDesc:true,showTag:true,showQty:true,showUnit:true,showTotal:true,manualTotal:false,total:0}];
+  if (data && Array.isArray(data.items)) {
+    itemsList = data.items.map(function(it){
+      if (Array.isArray(it)) {
+        return {desc:it[0],tag:it[1],qty:it[2]||1,unit:it[3]||0,days:1,multiDay:false,showDesc:true,showTag:true,showQty:true,showUnit:true,showTotal:true,manualTotal:false,total:0};
+      }
+      return Object.assign({desc:'',tag:'General',qty:1,unit:0,days:1,multiDay:false,showDesc:true,showTag:true,showQty:true,showUnit:true,showTotal:true,manualTotal:false,total:0}, it);
+    });
+  }
+
   cats.push({
     id: id,
-    name: data ? data.name : 'New Category',
+    name: name,
+    type: type,
     color: color,
     discEnabled: false, discMode: 'pct', discVal: 0, discLabel: 'Discount',
     budgetEnabled: false, budgetVal: 0, budgetLabel: 'Category Budget',
-    note: data && data.note ? data.note : '',
-    items: data
-      ? data.items.map(function(it){ return {desc:it[0],tag:it[1],qty:it[2]||1,unit:it[3]||0,days:1,multiDay:false,showDesc:true,showTag:true,showQty:true,showUnit:true,showTotal:true,manualTotal:false,total:0}; })
-      : [{desc:'',tag:'General',qty:1,unit:0,days:1,multiDay:false,showDesc:true,showTag:true,showQty:true,showUnit:true,showTotal:true,manualTotal:false,total:0}]
+    note: (data && data.note) ? data.note : '',
+    items: itemsList
   });
   renderCats();
   render();
 }
+
+function addAdditionalCategory() {
+  addCategory({ name: 'Additional Items', type: 'additional', color: '#16a34a' });
+}
+
+function addRemovedCategory() {
+  addCategory({ name: 'Removed Items', type: 'removed', color: '#dc2626', note: 'Items removed from the previous proposal as requested.' });
+}
+
+function updateCatType(id, type) {
+  var c = cats.find(function(x){ return x.id===id; });
+  if (!c) return;
+  c.type = type;
+  if (type === 'removed') {
+    if (!c.color || c.color === '#2563eb' || c.color === '#6366f1') c.color = '#dc2626';
+    if (!c.name || c.name === 'New Category') c.name = 'Removed Items';
+  } else if (type === 'additional') {
+    if (!c.color || c.color === '#2563eb' || c.color === '#6366f1') c.color = '#16a34a';
+    if (!c.name || c.name === 'New Category') c.name = 'Additional Items';
+  }
+  renderCats();
+  render();
+}
+
+function moveItemToRemoved(cId, idx) {
+  var srcCat = cats.find(function(x){ return x.id===cId; });
+  if (!srcCat || !srcCat.items[idx]) return;
+  var item = srcCat.items.splice(idx, 1)[0];
+  var removedCat = cats.find(function(x){ return x.type === 'removed'; });
+  if (!removedCat) {
+    var id = catId++;
+    removedCat = {
+      id: id,
+      name: 'Removed Items',
+      type: 'removed',
+      color: '#dc2626',
+      discEnabled: false, discMode: 'pct', discVal: 0, discLabel: 'Discount',
+      budgetEnabled: false, budgetVal: 0, budgetLabel: 'Category Budget',
+      note: 'Items removed as requested by customer',
+      items: []
+    };
+    cats.push(removedCat);
+  }
+  removedCat.items.push(item);
+  renderCats();
+  render();
+}
+
+function restoreRemovedItem(cId, idx) {
+  var srcCat = cats.find(function(x){ return x.id===cId; });
+  if (!srcCat || !srcCat.items[idx]) return;
+  var item = srcCat.items.splice(idx, 1)[0];
+  var targetCat = cats.find(function(x){ return (!x.type || x.type === 'standard'); });
+  if (!targetCat) {
+    var id = catId++;
+    targetCat = {
+      id: id,
+      name: 'Services',
+      type: 'standard',
+      color: '#2563eb',
+      discEnabled: false, discMode: 'pct', discVal: 0, discLabel: 'Discount',
+      budgetEnabled: false, budgetVal: 0, budgetLabel: 'Category Budget',
+      note: '',
+      items: []
+    };
+    cats.unshift(targetCat);
+  }
+  targetCat.items.push(item);
+  renderCats();
+  render();
+}
+
 function removeCategory(id) { cats = cats.filter(function(c){ return c.id!==id; }); renderCats(); render(); }
 
 function updateCategoryNote(id, val) {
@@ -496,10 +612,15 @@ function renderCats() {
   var html = '';
   for (var ci = 0; ci < cats.length; ci++) {
     var c = cats[ci];
+    var catType = c.type || 'standard';
+    var isRemoved = (catType === 'removed');
+    var isAdditional = (catType === 'additional');
+    var blockClass = 'cat-block' + (isRemoved ? ' cat-block-removed' : (isAdditional ? ' cat-block-additional' : ''));
     var rows = '';
     for (var ii = 0; ii < c.items.length; ii++) {
       var it = c.items[ii];
-      var lineTotal = itemTotal(it).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+      var rawTotal = itemTotal(it);
+      var lineTotal = (isRemoved ? '− ' : '') + rawTotal.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
       var descOn = it.showDesc !== false;
       var tagOn = it.showTag !== false;
       var unitOn = it.showUnit !== false;
@@ -510,7 +631,7 @@ function renderCats() {
       var totalOn = it.showTotal !== false;
       rows += '<tr class="item-row" data-cid="' + c.id + '" data-idx="' + ii + '">' +
         '<td><div style="display:flex;align-items:center;gap:3px">' +
-          '<input style="flex:1" value="' + esc(it.desc) + '" placeholder="Description" oninput="updateItem(' + c.id + ',' + ii + ',\'desc\',this.value)">' +
+          '<input style="flex:1' + (isRemoved ? ';text-decoration:line-through;color:#991b1b' : '') + '" value="' + esc(it.desc) + '" placeholder="Description" oninput="updateItem(' + c.id + ',' + ii + ',\'desc\',this.value)">' +
           '<button class="btn-icon" style="padding:3px;color:' + (descOn?'var(--accent)':'var(--text2)') + '" title="' + (descOn?'Description shown on invoice — click to hide':'Description hidden on invoice — click to show') + '" onclick="toggleItemVis(' + c.id + ',' + ii + ',\'showDesc\')"><i class="ti ti-' + (descOn?'eye':'eye-off') + '" style="font-size:13px"></i></button>' +
         '</div></td>' +
         '<td><div style="display:flex;align-items:center;gap:3px">' +
@@ -518,24 +639,29 @@ function renderCats() {
           '<button class="btn-icon" style="padding:3px;color:' + (tagOn?'var(--accent)':'var(--text2)') + '" title="' + (tagOn?'Tag shown on invoice — click to hide':'Tag hidden on invoice — click to show') + '" onclick="toggleItemVis(' + c.id + ',' + ii + ',\'showTag\')"><i class="ti ti-' + (tagOn?'eye':'eye-off') + '" style="font-size:13px"></i></button>' +
         '</div></td>' +
         '<td><div style="display:flex;align-items:center;gap:3px">' +
-          '<input style="flex:1" type="number" value="' + it.qty + '" min="0" oninput="updateItem(' + c.id + ',' + ii + ',\'qty\',this.value)">' +
+          '<input style="flex:1" type="number" value="' + it.qty + '" step="any" oninput="updateItem(' + c.id + ',' + ii + ',\'qty\',this.value)">' +
           '<button class="btn-icon" style="padding:3px;color:' + (qtyOn?'var(--accent)':'var(--text2)') + '" title="' + (qtyOn?'Quantity shown on invoice — click to hide':'Quantity hidden on invoice — click to show') + '" onclick="toggleItemVis(' + c.id + ',' + ii + ',\'showQty\')"><i class="ti ti-' + (qtyOn?'eye':'eye-off') + '" style="font-size:13px"></i></button>' +
         '</div></td>' +
         '<td><div style="display:flex;align-items:center;gap:3px">' +
-          '<input style="flex:1" type="number" value="' + it.unit + '" min="0" step="100" oninput="updateItem(' + c.id + ',' + ii + ',\'unit\',this.value)">' +
+          '<input style="flex:1" type="number" value="' + it.unit + '" step="any" oninput="updateItem(' + c.id + ',' + ii + ',\'unit\',this.value)">' +
           '<button class="btn-icon" style="padding:3px;color:' + (unitOn?'var(--accent)':'var(--text2)') + '" title="' + (unitOn?'Unit price shown on invoice — click to hide':'Unit price hidden on invoice — click to show') + '" onclick="toggleItemVis(' + c.id + ',' + ii + ',\'showUnit\')"><i class="ti ti-' + (unitOn?'eye':'eye-off') + '" style="font-size:13px"></i></button>' +
         '</div></td>' +
         '<td><div style="display:flex;align-items:center;gap:3px">' +
           (manualOn
-            ? '<input style="flex:1;text-align:right;color:var(--accent);font-weight:600" type="number" value="' + (it.total||0) + '" min="0" step="0.01" oninput="updateItem(' + c.id + ',' + ii + ',\'total\',this.value)">'
-            : '<span class="item-line-total" style="flex:1;text-align:right;font-size:12px;color:var(--text2)">' + lineTotal + '</span>') +
+            ? '<input style="flex:1;text-align:right;color:' + (isRemoved?'#dc2626':'var(--accent)') + ';font-weight:600" type="number" value="' + (it.total||0) + '" step="any" oninput="updateItem(' + c.id + ',' + ii + ',\'total\',this.value)">'
+            : '<span class="item-line-total" style="flex:1;text-align:right;font-size:12px;font-weight:600;color:' + (isRemoved?'#dc2626':(isAdditional?'#16a34a':'var(--text2)')) + '">' + lineTotal + '</span>') +
           '<button class="btn-icon" style="padding:3px;color:' + (totalOn?'var(--accent)':'var(--text2)') + '" title="' + (totalOn?'Amount shown on invoice — click to hide (e.g. lump-sum category budgets)':'Amount hidden on invoice — click to show') + '" onclick="toggleItemVis(' + c.id + ',' + ii + ',\'showTotal\')"><i class="ti ti-' + (totalOn?'eye':'eye-off') + '" style="font-size:13px"></i></button>' +
           '<button class="btn-icon" style="padding:3px;color:' + (manualOn?'var(--accent)':'var(--text2)') + '" title="' + (manualOn?'Total is manually set — click to auto-calculate again':'Total auto-calculated — click to edit manually') + '" onclick="toggleManualTotal(' + c.id + ',' + ii + ')"><i class="ti ti-' + (manualOn?'lock':'pencil') + '" style="font-size:12px"></i></button>' +
           '<button class="btn btn-sm multi-day-toggle" style="padding:3px 6px;font-size:10px;line-height:1.2;color:' + (multiDayOn?'var(--accent)':'var(--text2)') + ';border-color:' + (multiDayOn?'var(--accent)':'var(--border2)') + '" title="' + (multiDayOn?'Multi-day pricing ON — click to use normal one-day pricing':'Enable multi-day pricing for this item') + '" onclick="toggleMultiDay(' + c.id + ',' + ii + ')"><i class="ti ti-calendar-time" style="font-size:12px"></i> ' + (multiDayOn ? (days + ' day' + (days==1?'':'s')) : '+ Days') + '</button>' +
         '</div></td>' +
-        '<td style="text-align:center"><button class="btn-icon" onclick="removeItem(' + c.id + ',' + ii + ')"><i class="ti ti-x" style="font-size:12px"></i></button></td>' +
+        '<td style="text-align:center"><div style="display:flex;align-items:center;justify-content:center;gap:2px">' +
+          (isRemoved
+            ? '<button class="btn-icon" title="Restore item back to standard category" onclick="restoreRemovedItem(' + c.id + ',' + ii + ')" style="color:#16a34a"><i class="ti ti-arrow-back-up" style="font-size:13px"></i></button>'
+            : '<button class="btn-icon" title="Move item to Removed Items (Deduction)" onclick="moveItemToRemoved(' + c.id + ',' + ii + ')" style="color:#dc2626"><i class="ti ti-arrow-down-right" style="font-size:13px"></i></button>') +
+          '<button class="btn-icon" title="Delete item completely" onclick="removeItem(' + c.id + ',' + ii + ')"><i class="ti ti-x" style="font-size:12px"></i></button>' +
+        '</div></td>' +
         '</tr>' +
-        (multiDayOn ? '<tr class="multi-day-row" data-cid="' + c.id + '" data-idx="' + ii + '"><td colspan="6" style="padding:8px 10px;background:var(--surface2);border-bottom:1px solid var(--border)"><div style="display:flex;align-items:center;gap:8px;justify-content:flex-end;flex-wrap:wrap;font-size:11.5px;color:var(--text2)"><i class="ti ti-calendar-time" style="color:var(--accent)"></i><strong style="color:var(--text)">Multi-day</strong><span>Days</span><input type="number" min="1" step="1" value="' + days + '" oninput="updateItem(' + c.id + ',' + ii + ',\'days\',this.value)" style="width:65px;padding:4px 7px;border:1px solid var(--border2);border-radius:6px;background:var(--surface);color:var(--text);text-align:right"><span>Manual total</span><div style="display:flex;align-items:center;gap:4px"><span style="font-weight:600">' + sym + '</span><input type="number" min="0" step="0.01" value="' + (parseFloat(it.multiDayPrice)||0) + '" oninput="updateItem(' + c.id + ',' + ii + ',\'multiDayPrice\',this.value)" style="width:120px;padding:4px 7px;border:1px solid var(--border2);border-radius:6px;background:var(--surface);color:var(--text);text-align:right"></div><span class="multi-day-price-display" style="font-weight:700;color:var(--text);display:none">' + sym + ' ' + lineTotal + '</span></div></td></tr>' : '');
+        (multiDayOn ? '<tr class="multi-day-row" data-cid="' + c.id + '" data-idx="' + ii + '"><td colspan="6" style="padding:8px 10px;background:var(--surface2);border-bottom:1px solid var(--border)"><div style="display:flex;align-items:center;gap:8px;justify-content:flex-end;flex-wrap:wrap;font-size:11.5px;color:var(--text2)"><i class="ti ti-calendar-time" style="color:var(--accent)"></i><strong style="color:var(--text)">Multi-day</strong><span>Days</span><input type="number" min="1" step="1" value="' + days + '" oninput="updateItem(' + c.id + ',' + ii + ',\'days\',this.value)" style="width:65px;padding:4px 7px;border:1px solid var(--border2);border-radius:6px;background:var(--surface);color:var(--text);text-align:right"><span>Manual total</span><div style="display:flex;align-items:center;gap:4px"><span style="font-weight:600">' + sym + '</span><input type="number" step="any" value="' + (parseFloat(it.multiDayPrice)||0) + '" oninput="updateItem(' + c.id + ',' + ii + ',\'multiDayPrice\',this.value)" style="width:120px;padding:4px 7px;border:1px solid var(--border2);border-radius:6px;background:var(--surface);color:var(--text);text-align:right"></div><span class="multi-day-price-display" style="font-weight:700;color:var(--text);display:none">' + sym + ' ' + lineTotal + '</span></div></td></tr>' : '');
     }
     var discBtnColor = c.discEnabled ? '#16a34a' : 'var(--text2)';
     var discBtnIcon = c.discEnabled ? 'ti-discount-check' : 'ti-discount';
@@ -550,11 +676,16 @@ function renderCats() {
     var budgetBtnLabel = c.budgetEnabled ? 'Budget: ON' : 'Set category budget';
     var budgetRowDisp = c.budgetEnabled ? 'flex' : 'none';
 
-    html += '<div class="cat-block">' +
+    html += '<div class="' + blockClass + '">' +
       '<div class="cat-header">' +
         '<div class="cat-color-dot" style="background:' + esc(c.color) + '" onclick="cycleCatColor(' + c.id + ')" title="Change colour"></div>' +
         '<input class="cat-name-input" value="' + esc(c.name) + '" oninput="updateCatField(' + c.id + ',\'name\',this.value)" placeholder="Category name">' +
-        '<button class="btn-icon" onclick="removeCategory(' + c.id + ')"><i class="ti ti-trash"></i></button>' +
+        '<select class="cat-type-select" onchange="updateCatType(' + c.id + ',this.value)" title="Category role in quotation">' +
+          '<option value="standard"' + (catType==='standard'?' selected':'') + '>Standard</option>' +
+          '<option value="additional"' + (catType==='additional'?' selected':'') + ' style="color:#16a34a;font-weight:700">+ Additional (+)</option>' +
+          '<option value="removed"' + (catType==='removed'?' selected':'') + ' style="color:#dc2626;font-weight:700">&minus; Removed (&minus;)</option>' +
+        '</select>' +
+        '<button class="btn-icon" onclick="removeCategory(' + c.id + ')" title="Delete category"><i class="ti ti-trash"></i></button>' +
       '</div>' +
       '<div class="cat-table-wrap">' +
       '<table class="item-table"><thead><tr>' +
@@ -580,13 +711,13 @@ function renderCats() {
         '<label>Label</label>' +
         '<input style="flex:1;min-width:70px;padding:3px 7px;border:1px solid var(--border2);border-radius:4px;font-size:12px;background:var(--surface);color:var(--text)" value="' + esc(c.discLabel) + '" oninput="updateCatField(' + c.id + ',\'discLabel\',this.value)">' +
         '<select onchange="updateCatField(' + c.id + ',\'discMode\',this.value);render()">' + discModeOpts + '</select>' +
-        '<input type="number" value="' + c.discVal + '" min="0" step="0.01" placeholder="0" oninput="updateCatField(' + c.id + ',\'discVal\',this.value)">' +
+        '<input type="number" value="' + c.discVal + '" step="any" placeholder="0" oninput="updateCatField(' + c.id + ',\'discVal\',this.value)">' +
       '</div>' +
       '<div id="catBudgetRow_' + c.id + '" class="cat-disc-row" style="display:' + budgetRowDisp + '">' +
         '<label>Label</label>' +
         '<input style="flex:1;min-width:70px;padding:3px 7px;border:1px solid var(--border2);border-radius:4px;font-size:12px;background:var(--surface);color:var(--text)" value="' + esc(c.budgetLabel) + '" oninput="updateCatField(' + c.id + ',\'budgetLabel\',this.value)">' +
         '<label>Amount</label>' +
-        '<input type="number" value="' + c.budgetVal + '" min="0" step="0.01" placeholder="0" oninput="updateCatField(' + c.id + ',\'budgetVal\',this.value)" style="width:110px;text-align:right">' +
+        '<input type="number" value="' + c.budgetVal + '" step="any" placeholder="0" oninput="updateCatField(' + c.id + ',\'budgetVal\',this.value)" style="width:110px;text-align:right">' +
       '</div>' +
       '<div class="cat-note-editor" style="border-top:1px solid var(--border);border-bottom:0">' +
         '<textarea placeholder="Category note / description (optional)" oninput="updateCategoryNote(' + c.id + ',this.value)">' + esc(c.note||'') + '</textarea>' +
@@ -598,6 +729,10 @@ function renderCats() {
 
 // ── TOTALS ──
 function calcTotals() {
+  var standardSub = 0;
+  var additionalSub = 0;
+  var removedSub = 0;
+
   var catData = cats.map(function(c) {
     var rawSub = c.items.reduce(function(a,it){ return a+itemTotal(it); }, 0);
     var catDisc = 0, catDiscLabel = '';
@@ -608,10 +743,35 @@ function calcTotals() {
     }
     var budgetVal = parseFloat(c.budgetVal)||0;
     var sub = c.budgetEnabled ? budgetVal : (rawSub - catDisc);
-    return {name:c.name, color:c.color, note:c.note||'', rawSub:rawSub, catDisc:catDisc, catDiscLabel:catDiscLabel, sub:sub, items:c.items, discEnabled:c.discEnabled && !c.budgetEnabled, budgetEnabled:c.budgetEnabled, budgetVal:budgetVal, budgetLabel:c.budgetLabel};
+    var catType = c.type || 'standard';
+
+    if (catType === 'removed') {
+      removedSub += sub;
+    } else if (catType === 'additional') {
+      additionalSub += sub;
+    } else {
+      standardSub += sub;
+    }
+
+    return {
+      name: c.name,
+      type: catType,
+      color: c.color,
+      note: c.note||'',
+      rawSub: rawSub,
+      catDisc: catDisc,
+      catDiscLabel: catDiscLabel,
+      sub: sub,
+      items: c.items,
+      discEnabled: c.discEnabled && !c.budgetEnabled,
+      budgetEnabled: c.budgetEnabled,
+      budgetVal: budgetVal,
+      budgetLabel: c.budgetLabel
+    };
   });
 
-  var subtotal = catData.reduce(function(a,c){ return a+c.sub; }, 0);
+  var subtotal = standardSub + additionalSub - removedSub;
+  if (subtotal < 0) subtotal = 0;
 
   var discAmt = 0, discLabel = '';
   if (gc('discEnabled')) {
@@ -621,6 +781,8 @@ function calcTotals() {
   }
 
   var afterDisc = subtotal - discAmt;
+  if (afterDisc < 0) afterDisc = 0;
+
   var taxAmt = 0, taxLabel = '';
   if (gc('taxEnabled')) {
     var tv = parseFloat(gv('taxVal'))||0;
@@ -628,7 +790,19 @@ function calcTotals() {
     taxLabel = (gv('taxMode')==='pct') ? ((gv('taxLabel')||'VAT')+' ('+tv+'%)') : (gv('taxLabel')||'VAT');
   }
 
-  return {catData:catData, subtotal:subtotal, discAmt:discAmt, discLabel:discLabel, taxAmt:taxAmt, taxLabel:taxLabel, grand:afterDisc+taxAmt};
+  return {
+    catData: catData,
+    standardSub: standardSub,
+    additionalSub: additionalSub,
+    removedSub: removedSub,
+    hasRevisions: (additionalSub > 0 || removedSub > 0),
+    subtotal: subtotal,
+    discAmt: discAmt,
+    discLabel: discLabel,
+    taxAmt: taxAmt,
+    taxLabel: taxLabel,
+    grand: afterDisc + taxAmt
+  };
 }
 
 // ── RENDER ──
@@ -692,7 +866,11 @@ function render() {
   var catSections = '';
   for (var ci = 0; ci < t.catData.length; ci++) {
     var c = t.catData[ci];
-    var bg = rgba(c.color, 0.09);
+    var catType = c.type || 'standard';
+    var isRemoved = (catType === 'removed');
+    var isAdditional = (catType === 'additional');
+    var bg = isRemoved ? 'rgba(220, 38, 38, 0.08)' : (isAdditional ? 'rgba(22, 163, 74, 0.08)' : rgba(c.color, 0.09));
+    var headingColor = isRemoved ? '#dc2626' : (isAdditional ? '#16a34a' : esc(c.color));
     var itemRows = '';
     for (var ii = 0; ii < c.items.length; ii++) {
       var it = c.items[ii];
@@ -702,17 +880,22 @@ function render() {
       var unitOn = it.showUnit !== false;
       var qtyOn = it.showQty !== false;
       var totalOn = it.showTotal !== false;
-      var tagChip = tagOn ? ('<span class="item-tag" style="background:' + rgba(c.color,0.1) + ';color:' + esc(c.color) + '">' + esc(it.tag) + '</span>') : '';
+      var tagChipBg = isRemoved ? 'rgba(220,38,38,0.1)' : (isAdditional ? 'rgba(22,163,74,0.1)' : rgba(c.color,0.1));
+      var tagChip = tagOn ? ('<span class="item-tag" style="background:' + tagChipBg + ';color:' + headingColor + '">' + esc(it.tag) + '</span>') : '';
       var dayNote = it.multiDay ? '<span style="display:block;font-size:9.5px;color:#999;margin-top:2px">' + (parseFloat(it.days)||1) + ' day' + ((parseFloat(it.days)||1)===1?'':'s') + '</span>' : '';
+      var descStyle = isRemoved ? 'text-decoration:line-through;color:#991b1b;opacity:0.85' : '';
       var descSpan = descOn
-        ? '<span>' + esc(it.desc||'—') + tagChip + dayNote + '</span>'
+        ? '<span' + (descStyle ? ' style="' + descStyle + '"' : '') + '>' + esc(it.desc||'—') + tagChip + dayNote + '</span>'
         : '<span>' + tagChip + dayNote + '</span>';
-      var unitSpan = showUnitCol ? ('<span>' + (unitOn ? (fmt(it.unit) + (it.multiDay ? '<span style="display:block;font-size:9px;color:#aaa">/ day</span>' : '')) : '') + '</span>') : '';
-      itemRows += '<div class="doc-item" style="grid-template-columns:' + gridCols + '">' +
+      var unitPrefix = isRemoved ? '&minus; ' : (isAdditional ? '+ ' : '');
+      var totalPrefix = isRemoved ? '&minus; ' : (isAdditional ? '+ ' : '');
+      var totalColor = isRemoved ? '#dc2626' : (isAdditional ? '#16a34a' : '#111');
+      var unitSpan = showUnitCol ? ('<span>' + (unitOn ? (unitPrefix + fmt(it.unit) + (it.multiDay ? '<span style="display:block;font-size:9px;color:#aaa">/ day</span>' : '')) : '') + '</span>') : '';
+      itemRows += '<div class="doc-item' + (isRemoved ? ' doc-item-removed' : '') + '" style="grid-template-columns:' + gridCols + '">' +
         descSpan +
         '<span>' + (qtyOn ? it.qty : '') + '</span>' +
         unitSpan +
-        '<span style="font-weight:600;color:#111">' + (totalOn ? fmt(total) : '') + '</span>' +
+        '<span style="font-weight:600;color:' + totalColor + '">' + (totalOn ? (totalPrefix + fmt(total)) : '') + '</span>' +
         '</div>';
     }
     var discLine = (c.discEnabled && c.catDisc > 0)
@@ -720,6 +903,7 @@ function render() {
       : '';
     var subLabel = (c.discEnabled && c.catDisc > 0) ? 'Net total' : 'Subtotal';
     var headingAmt = c.budgetEnabled ? c.budgetVal : c.sub;
+    var headingAmtFormatted = (isRemoved ? '&minus; ' : (isAdditional ? '+ ' : '')) + fmt(headingAmt);
     var subtotalLine;
     if (!showCatSubtotal) {
       subtotalLine = '';
@@ -727,18 +911,30 @@ function render() {
       var colCount = showUnitCol ? 4 : 3;
       var budgetSpans = '';
       for (var bi = 0; bi < colCount; bi++) {
-        if (bi === colCount - 2) budgetSpans += '<span style="font-weight:700;color:' + esc(c.color) + '">' + esc(c.budgetLabel||'Category Budget') + '</span>';
-        else if (bi === colCount - 1) budgetSpans += '<span style="font-weight:700;color:' + esc(c.color) + '">' + fmt(c.budgetVal) + '</span>';
+        if (bi === colCount - 2) budgetSpans += '<span style="font-weight:700;color:' + headingColor + '">' + esc(c.budgetLabel||'Category Budget') + '</span>';
+        else if (bi === colCount - 1) budgetSpans += '<span style="font-weight:700;color:' + headingColor + '">' + (isRemoved ? '&minus; ' : (isAdditional ? '+ ' : '')) + fmt(c.budgetVal) + '</span>';
         else budgetSpans += '<span></span>';
       }
       subtotalLine = '<div class="doc-item" style="grid-template-columns:' + gridCols + ';border-top:1px dashed #eee;margin-top:2px;padding-top:6px">' + budgetSpans + '</div>';
+    } else if (isRemoved) {
+      subtotalLine = '<div class="cat-subtotal" style="color:#dc2626"><span>' + esc(c.name) + ' (Deduction)</span><span style="color:#dc2626">&minus; ' + fmt(c.sub) + '</span></div>';
+    } else if (isAdditional) {
+      subtotalLine = '<div class="cat-subtotal" style="color:#16a34a"><span>' + esc(c.name) + ' Subtotal</span><span style="color:#16a34a">+ ' + fmt(c.sub) + '</span></div>';
     } else {
       subtotalLine = '<div class="cat-subtotal"><span>' + esc(c.name) + ' ' + subLabel + '</span><span style="color:' + esc(c.color) + '">' + fmt(c.sub) + '</span></div>';
     }
+
+    var typeBadge = '';
+    if (isRemoved) {
+      typeBadge = '<span style="margin-left:7px;font-size:9px;background:#fee2e2;color:#dc2626;border:1px solid #fecaca;padding:1px 6px;border-radius:4px;font-weight:700;letter-spacing:normal">&minus; DEDUCTION / REMOVED</span>';
+    } else if (isAdditional) {
+      typeBadge = '<span style="margin-left:7px;font-size:9px;background:#dcfce7;color:#15803d;border:1px solid #bbf7d0;padding:1px 6px;border-radius:4px;font-weight:700;letter-spacing:normal">+ ADDITIONAL</span>';
+    }
+
     catSections +=
-      '<div class="cat-sec">' +
-      '<div class="cat-heading" style="background:' + bg + ';color:' + esc(c.color) + '">' +
-        '<span>' + esc(c.name) + '</span>' + (showCatHeadingTotal ? '<span>' + fmt(headingAmt) + '</span>' : '') +
+      '<div class="cat-sec' + (isRemoved ? ' cat-sec-removed' : '') + '">' +
+      '<div class="cat-heading" style="background:' + bg + ';color:' + headingColor + '">' +
+        '<span>' + esc(c.name) + typeBadge + '</span>' + (showCatHeadingTotal ? '<span>' + headingAmtFormatted + '</span>' : '') +
       '</div>' +
       '<div class="items-head" style="grid-template-columns:' + gridCols + '">' + headSpans + '</div>' +
       itemRows + discLine +
@@ -748,7 +944,21 @@ function render() {
   }
 
   // Summary lines
-  var sumLines = '<div class="sum-line"><span>Subtotal</span><span>' + fmt(t.subtotal) + '</span></div>';
+  var sumLines = '';
+  if (t.hasRevisions) {
+    if (t.standardSub > 0) {
+      sumLines += '<div class="sum-line"><span>Base Scope / Package</span><span>' + fmt(t.standardSub) + '</span></div>';
+    }
+    if (t.additionalSub > 0) {
+      sumLines += '<div class="sum-line" style="color:#16a34a;font-weight:600"><span>Additional Items (+)</span><span>+ ' + fmt(t.additionalSub) + '</span></div>';
+    }
+    if (t.removedSub > 0) {
+      sumLines += '<div class="sum-line" style="color:#dc2626;font-weight:600"><span>Removed Items / Deductions (&minus;)</span><span>&minus; ' + fmt(t.removedSub) + '</span></div>';
+    }
+    sumLines += '<div class="sum-line" style="font-weight:700;border-top:1px solid #eee;margin-top:2px;padding-top:4px"><span>Revised Subtotal</span><span>' + fmt(t.subtotal) + '</span></div>';
+  } else {
+    sumLines += '<div class="sum-line"><span>Subtotal</span><span>' + fmt(t.subtotal) + '</span></div>';
+  }
   if (gc('discEnabled') && t.discAmt > 0)
     sumLines += '<div class="sum-line" style="color:#16a34a"><span>' + esc(t.discLabel) + '</span><span>&minus; ' + fmt(t.discAmt) + '</span></div>';
   if (gc('taxEnabled') && t.taxAmt > 0)
@@ -1105,7 +1315,10 @@ function pushToSheets() {
   var url = gv('gsUrl'); if (!url) { alert('Enter your Apps Script URL.'); return; }
   var t = calcTotals(), today = new Date().toISOString().slice(0,10), rows = [];
   cats.forEach(function(c){ c.items.forEach(function(it){
-    rows.push([gv('docNum'),gv('docType'),gvFlat('clientName'),gv('eventName'),c.name,it.desc,it.tag,it.qty||1,it.unit||0,itemTotal(it),today,gv('currency').trim()]);
+    var isRem = (c.type === 'removed');
+    var itTot = isRem ? -itemTotal(it) : itemTotal(it);
+    var itUnit = isRem ? -Math.abs(it.unit||0) : (it.unit||0);
+    rows.push([gv('docNum'),gv('docType'),gvFlat('clientName'),gv('eventName'),c.name,it.desc,it.tag,it.qty||1,itUnit,itTot,today,gv('currency').trim()]);
   }); });
   rows.push([gv('docNum'),gv('docType'),gvFlat('clientName'),gv('eventName'),'—','GRAND TOTAL','—','','',t.grand,today,gv('currency').trim()]);
   fetch(url, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({
@@ -1334,7 +1547,10 @@ function exportCSV() {
   var t = calcTotals();
   var rows = [['Doc #','Type','Client','Event','Category','Item','Tag','Qty','Unit Price','Line Total','Currency']];
   cats.forEach(function(c){ c.items.forEach(function(it){
-    rows.push([gv('docNum'),gv('docType'),gvFlat('clientName'),gv('eventName'),c.name,it.desc,it.tag,it.qty||1,it.unit||0,itemTotal(it),gv('currency').trim()]);
+    var isRem = (c.type === 'removed');
+    var itTot = isRem ? -itemTotal(it) : itemTotal(it);
+    var itUnit = isRem ? -Math.abs(it.unit||0) : (it.unit||0);
+    rows.push([gv('docNum'),gv('docType'),gvFlat('clientName'),gv('eventName'),c.name,it.desc,it.tag,it.qty||1,itUnit,itTot,gv('currency').trim()]);
   }); });
   rows.push(['','','','','','','SUBTOTAL','','',t.subtotal,'']);
   if (gc('discEnabled') && t.discAmt > 0) rows.push(['','','','','','',t.discLabel,'','','-'+t.discAmt.toFixed(2),'']);
@@ -1426,15 +1642,7 @@ async function saveCurrentDoc() {
     }
   }
 }
-function esc(s) {
-  if (s === null || s === undefined) return '';
-  return String(s)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
+
 
 var currentHistoryEntries = [];
 
@@ -1465,6 +1673,7 @@ function renderHistoryCards(rows) {
         '<div style="font-size:13px;font-weight:700;color:var(--accent)">' + esc(total) + '</div>' +
         '<div style="display:flex;gap:4px">' +
           '<button class="btn btn-sm btn-primary" style="padding:3px 10px;font-size:11.5px" onclick="loadSavedDoc(\'' + esc(item.id) + '\')"><i class="ti ti-folder-open"></i> Load</button>' +
+          '<button class="btn btn-sm btn-ghost" style="padding:3px 8px;font-size:11.5px;color:var(--accent)" title="Load as revision (keeps original intact)" onclick="loadDocAsRevision(\'' + esc(item.id) + '\')"><i class="ti ti-git-branch"></i> Revise</button>' +
           '<button class="btn btn-sm btn-danger" style="padding:3px 7px;font-size:11.5px" title="Delete" onclick="deleteSavedDoc(\'' + esc(item.id) + '\')"><i class="ti ti-trash"></i></button>' +
         '</div>' +
       '</div>' +
@@ -1601,6 +1810,15 @@ async function loadSavedDoc(id) {
     if (isMissingTableError(e.message)) { offerCreateTables(); }
     else { alert('Could not load this document from Supabase: ' + e.message); }
   }
+}
+async function loadDocAsRevision(id) {
+  await loadSavedDoc(id);
+  var curNum = gv('docNum');
+  var revNum = bumpDocRevision(curNum);
+  document.getElementById('docNum').value = revNum;
+  docNumManual = true;
+  render();
+  alert('Loaded ' + (curNum || 'document') + ' as revision: ' + revNum + '\n\nMake your changes (add/remove items) and press Save to keep both versions.');
 }
 async function deleteSavedDoc(id) {
   if (!confirm('Delete this saved document from Supabase? This cannot be undone.')) return;
