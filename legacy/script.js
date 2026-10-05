@@ -374,6 +374,15 @@ function clearLogo() {
 }
 
 // ── CATEGORIES ──
+function getCatType(c) {
+  if (!c) return 'standard';
+  if (c.type === 'removed' || c.type === 'additional') return c.type;
+  var name = (c.name || '').trim().toLowerCase();
+  if (/removed|deduct|cut|cancelled|omitted/i.test(name)) return 'removed';
+  if (/additional|extra|add-on|addon/i.test(name)) return 'additional';
+  return c.type || 'standard';
+}
+
 function addCategory(data) {
   var id = catId++;
   var type = (data && data.type) ? data.type : 'standard';
@@ -424,14 +433,14 @@ function addRemovedCategory() {
 }
 
 function updateCatType(id, type) {
-  var c = cats.find(function(x){ return x.id===id; });
+  var c = cats.find(function(x){ return String(x.id)===String(id); });
   if (!c) return;
   c.type = type;
   if (type === 'removed') {
-    if (!c.color || c.color === '#2563eb' || c.color === '#6366f1') c.color = '#dc2626';
+    c.color = '#dc2626';
     if (!c.name || c.name === 'New Category') c.name = 'Removed Items';
   } else if (type === 'additional') {
-    if (!c.color || c.color === '#2563eb' || c.color === '#6366f1') c.color = '#16a34a';
+    c.color = '#16a34a';
     if (!c.name || c.name === 'New Category') c.name = 'Additional Items';
   }
   renderCats();
@@ -439,10 +448,10 @@ function updateCatType(id, type) {
 }
 
 function moveItemToRemoved(cId, idx) {
-  var srcCat = cats.find(function(x){ return x.id===cId; });
+  var srcCat = cats.find(function(x){ return String(x.id)===String(cId); });
   if (!srcCat || !srcCat.items[idx]) return;
   var item = srcCat.items.splice(idx, 1)[0];
-  var removedCat = cats.find(function(x){ return x.type === 'removed'; });
+  var removedCat = cats.find(function(x){ return getCatType(x) === 'removed'; });
   if (!removedCat) {
     var id = catId++;
     removedCat = {
@@ -463,10 +472,10 @@ function moveItemToRemoved(cId, idx) {
 }
 
 function restoreRemovedItem(cId, idx) {
-  var srcCat = cats.find(function(x){ return x.id===cId; });
+  var srcCat = cats.find(function(x){ return String(x.id)===String(cId); });
   if (!srcCat || !srcCat.items[idx]) return;
   var item = srcCat.items.splice(idx, 1)[0];
-  var targetCat = cats.find(function(x){ return (!x.type || x.type === 'standard'); });
+  var targetCat = cats.find(function(x){ return getCatType(x) === 'standard'; });
   if (!targetCat) {
     var id = catId++;
     targetCat = {
@@ -482,11 +491,9 @@ function restoreRemovedItem(cId, idx) {
     cats.unshift(targetCat);
   }
   targetCat.items.push(item);
-  renderCats();
-  render();
 }
 
-function removeCategory(id) { cats = cats.filter(function(c){ return c.id!==id; }); renderCats(); render(); }
+function removeCategory(id) { cats = cats.filter(function(c){ return String(c.id)!==String(id); }); renderCats(); render(); }
 
 function updateCategoryNote(id, val) {
   var c = cats.find(function(x){ return x.id===id; });
@@ -514,33 +521,42 @@ function toggleItemVis(cId, idx, field) {
   renderCats(); render();
 }
 function updateCatField(id, field, val) {
-  var c = cats.find(function(x){ return x.id===id; });
+  var c = cats.find(function(x){ return String(x.id)===String(id); });
   if (!c) return;
   if (field === 'discVal' || field === 'budgetVal') c[field] = parseFloat(val)||0;
   else c[field] = val;
+  if (field === 'name') {
+    var detected = getCatType(c);
+    if (detected !== 'standard' && (!c.type || c.type === 'standard')) {
+      c.type = detected;
+      if (detected === 'removed') c.color = '#dc2626';
+      if (detected === 'additional') c.color = '#16a34a';
+    }
+  }
   render();
 }
 function toggleCatDisc(id) {
-  var c = cats.find(function(x){ return x.id===id; });
+  var c = cats.find(function(x){ return String(x.id)===String(id); });
   if (!c) return;
   c.discEnabled = !c.discEnabled;
   renderCats(); render();
 }
 function toggleCatBudget(id) {
-  var c = cats.find(function(x){ return x.id===id; });
+  var c = cats.find(function(x){ return String(x.id)===String(id); });
   if (!c) return;
   c.budgetEnabled = !c.budgetEnabled;
   if (c.budgetEnabled && !c.budgetVal) {
     // seed with the current computed subtotal so it's a sensible starting point
-    var rawSub = c.items.reduce(function(a,it){ return a+itemTotal(it); }, 0);
+    var rawSub = c.items.reduce(function(a,it){ return a+Math.abs(itemTotal(it)); }, 0);
     c.budgetVal = rawSub;
   }
-  document.getElementById('catBudgetRow_'+id).style.display = c.budgetEnabled ? 'flex' : 'none';
+  var budgetRow = document.getElementById('catBudgetRow_'+id);
+  if (budgetRow) budgetRow.style.display = c.budgetEnabled ? 'flex' : 'none';
   renderCats();
   render();
 }
 function updateItem(cId, idx, field, val) {
-  var c = cats.find(function(x){ return x.id===cId; });
+  var c = cats.find(function(x){ return String(x.id)===String(cId); });
   if (!c || !c.items[idx]) return;
 
   var it = c.items[idx];
@@ -555,7 +571,9 @@ function updateItem(cId, idx, field, val) {
   if (row) {
     var totalEl = row.querySelector('.item-line-total');
     if (totalEl && !it.manualTotal) {
-      totalEl.textContent = itemTotal(it).toLocaleString('en-US',{
+      var isCatRem = getCatType(c) === 'removed';
+      var valAmt = Math.abs(itemTotal(it));
+      totalEl.textContent = (isCatRem ? '− ' : '') + valAmt.toLocaleString('en-US',{
         minimumFractionDigits:2,
         maximumFractionDigits:2
       });
