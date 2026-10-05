@@ -404,6 +404,15 @@ function addCategory(data) {
   });
   renderCats();
   render();
+
+  setTimeout(function() {
+    var catEl = document.querySelector('.cat-block[data-cid="' + id + '"]');
+    if (catEl) {
+      catEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      var descInput = catEl.querySelector('.item-row input');
+      if (descInput) descInput.focus();
+    }
+  }, 60);
 }
 
 function addAdditionalCategory() {
@@ -676,7 +685,7 @@ function renderCats() {
     var budgetBtnLabel = c.budgetEnabled ? 'Budget: ON' : 'Set category budget';
     var budgetRowDisp = c.budgetEnabled ? 'flex' : 'none';
 
-    html += '<div class="' + blockClass + '">' +
+    html += '<div class="' + blockClass + '" data-cid="' + c.id + '">' +
       '<div class="cat-header">' +
         '<div class="cat-color-dot" style="background:' + esc(c.color) + '" onclick="cycleCatColor(' + c.id + ')" title="Change colour"></div>' +
         '<input class="cat-name-input" value="' + esc(c.name) + '" oninput="updateCatField(' + c.id + ',\'name\',this.value)" placeholder="Category name">' +
@@ -724,7 +733,13 @@ function renderCats() {
       '</div>' +
       '</div>';
   }
-  document.getElementById('categories').innerHTML = html;
+  var addCategoryBar = '<div class="cat-add-actions" style="display:flex;gap:6px;margin:10px 0 16px;flex-wrap:wrap;padding:8px 10px;background:var(--surface2);border:1px dashed var(--border2);border-radius:10px;align-items:center">' +
+    '<span style="font-size:11.5px;font-weight:600;color:var(--text2);margin-right:2px"><i class="ti ti-plus"></i> Add:</span>' +
+    '<button type="button" class="btn btn-sm btn-ghost" onclick="addCategory(null)"><i class="ti ti-folder-plus"></i> Category</button>' +
+    '<button type="button" class="btn btn-sm btn-ghost" style="color:#16a34a;font-weight:600" onclick="addAdditionalCategory()"><i class="ti ti-circle-plus"></i> Additional Category</button>' +
+    '<button type="button" class="btn btn-sm btn-ghost" style="color:#dc2626;font-weight:600" onclick="addRemovedCategory()"><i class="ti ti-circle-minus"></i> Removed Category</button>' +
+  '</div>';
+  document.getElementById('categories').innerHTML = html + addCategoryBar;
 }
 
 // ── TOTALS ──
