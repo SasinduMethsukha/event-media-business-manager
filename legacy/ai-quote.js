@@ -512,7 +512,7 @@
 
     var prompt = 'Here is the quotation text to categorize:\n\n' + userText;
 
-    var endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + encodeURIComponent(apiKey);
+    var endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=' + encodeURIComponent(apiKey);
 
     var payload = {
       contents: [
