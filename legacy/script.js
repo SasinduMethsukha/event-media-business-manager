@@ -493,6 +493,173 @@ function restoreRemovedItem(cId, idx) {
   targetCat.items.push(item);
 }
 
+// ── CATEGORY & ITEM REORDERING ──
+function moveCategory(index, direction) {
+  if (!cats || cats.length <= 1) return;
+  index = parseInt(index, 10);
+  if (isNaN(index) || index < 0 || index >= cats.length) return;
+
+  var targetIndex = index;
+  if (direction === 'top') {
+    targetIndex = 0;
+  } else if (direction === 'bottom') {
+    targetIndex = cats.length - 1;
+  } else {
+    targetIndex = index + direction;
+  }
+
+  if (targetIndex < 0 || targetIndex >= cats.length || targetIndex === index) return;
+
+  var movedCat = cats.splice(index, 1)[0];
+  cats.splice(targetIndex, 0, movedCat);
+
+  renderCats();
+  render();
+
+  setTimeout(function() {
+    var el = document.querySelector('.cat-block[data-cid="' + movedCat.id + '"]');
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      el.classList.add('cat-highlight-anim');
+      setTimeout(function() { el.classList.remove('cat-highlight-anim'); }, 650);
+    }
+  }, 40);
+}
+
+function moveItem(cId, itemIdx, direction) {
+  var c = cats.find(function(x) { return String(x.id) === String(cId); });
+  if (!c || !c.items || c.items.length <= 1) return;
+  itemIdx = parseInt(itemIdx, 10);
+  if (isNaN(itemIdx) || itemIdx < 0 || itemIdx >= c.items.length) return;
+
+  var targetIdx = itemIdx;
+  if (direction === 'top') {
+    targetIdx = 0;
+  } else if (direction === 'bottom') {
+    targetIdx = c.items.length - 1;
+  } else {
+    targetIdx = itemIdx + direction;
+  }
+
+  if (targetIdx < 0 || targetIdx >= c.items.length || targetIdx === itemIdx) return;
+
+  var movedItem = c.items.splice(itemIdx, 1)[0];
+  c.items.splice(targetIdx, 0, movedItem);
+
+  renderCats();
+  render();
+
+  setTimeout(function() {
+    var row = document.querySelector('tr.item-row[data-cid="' + cId + '"][data-idx="' + targetIdx + '"]');
+    if (row) {
+      row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      row.classList.add('item-highlight-anim');
+      setTimeout(function() { row.classList.remove('item-highlight-anim'); }, 650);
+    }
+  }, 40);
+}
+
+// Drag & Drop handlers
+var _draggedCatIdx = null;
+var _draggedItemInfo = null;
+
+function onCatDragStart(e, idx) {
+  _draggedCatIdx = idx;
+  if (e.dataTransfer) {
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', 'cat:' + idx);
+  }
+  var el = e.currentTarget.closest('.cat-block');
+  if (el) el.classList.add('dragging');
+}
+
+function onCatDragEnd(e) {
+  _draggedCatIdx = null;
+  document.querySelectorAll('.cat-block').forEach(function(b) {
+    b.classList.remove('dragging', 'drag-over');
+  });
+}
+
+function onCatDragOver(e) {
+  if (_draggedCatIdx === null) return;
+  e.preventDefault();
+  if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+  var block = e.currentTarget.closest('.cat-block');
+  if (block) block.classList.add('drag-over');
+}
+
+function onCatDragLeave(e) {
+  var block = e.currentTarget.closest('.cat-block');
+  if (block) block.classList.remove('drag-over');
+}
+
+function onCatDrop(e, targetIdx) {
+  e.preventDefault();
+  if (_draggedCatIdx === null || _draggedCatIdx === targetIdx) return;
+  var fromIdx = _draggedCatIdx;
+  _draggedCatIdx = null;
+  document.querySelectorAll('.cat-block').forEach(function(b) {
+    b.classList.remove('dragging', 'drag-over');
+  });
+
+  var movedCat = cats.splice(fromIdx, 1)[0];
+  cats.splice(targetIdx, 0, movedCat);
+
+  renderCats();
+  render();
+}
+
+function onItemDragStart(e, cId, idx) {
+  _draggedItemInfo = { cId: cId, idx: idx };
+  if (e.dataTransfer) {
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', 'item:' + cId + ':' + idx);
+  }
+  var row = e.currentTarget.closest('tr.item-row');
+  if (row) row.classList.add('dragging');
+}
+
+function onItemDragEnd(e) {
+  _draggedItemInfo = null;
+  document.querySelectorAll('tr.item-row').forEach(function(r) {
+    r.classList.remove('dragging', 'drag-over');
+  });
+}
+
+function onItemDragOver(e) {
+  if (!_draggedItemInfo) return;
+  e.preventDefault();
+  if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+  var row = e.currentTarget.closest('tr.item-row');
+  if (row) row.classList.add('drag-over');
+}
+
+function onItemDragLeave(e) {
+  var row = e.currentTarget.closest('tr.item-row');
+  if (row) row.classList.remove('drag-over');
+}
+
+function onItemDrop(e, targetCId, targetItemIdx) {
+  e.preventDefault();
+  if (!_draggedItemInfo) return;
+  var fromCId = _draggedItemInfo.cId;
+  var fromIdx = _draggedItemInfo.idx;
+  _draggedItemInfo = null;
+  document.querySelectorAll('tr.item-row').forEach(function(r) {
+    r.classList.remove('dragging', 'drag-over');
+  });
+
+  var srcCat = cats.find(function(x) { return String(x.id) === String(fromCId); });
+  var destCat = cats.find(function(x) { return String(x.id) === String(targetCId); });
+  if (!srcCat || !destCat || !srcCat.items[fromIdx]) return;
+
+  var movedItem = srcCat.items.splice(fromIdx, 1)[0];
+  destCat.items.splice(targetItemIdx, 0, movedItem);
+
+  renderCats();
+  render();
+}
+
 function removeCategory(id) { cats = cats.filter(function(c){ return String(c.id)!==String(id); }); renderCats(); render(); }
 
 function updateCategoryNote(id, val) {
@@ -656,8 +823,9 @@ function renderCats() {
       var multiDayOn = !!it.multiDay;
       var days = (parseFloat(it.days)||1);
       var totalOn = it.showTotal !== false;
-      rows += '<tr class="item-row" data-cid="' + c.id + '" data-idx="' + ii + '">' +
+      rows += '<tr class="item-row" data-cid="' + c.id + '" data-idx="' + ii + '" ondragover="onItemDragOver(event)" ondragleave="onItemDragLeave(event)" ondrop="onItemDrop(event,' + c.id + ',' + ii + ')">' +
         '<td><div style="display:flex;align-items:center;gap:3px">' +
+          '<div class="item-drag-handle" draggable="true" ondragstart="onItemDragStart(event,' + c.id + ',' + ii + ')" ondragend="onItemDragEnd(event)" title="Drag to reorder item"><i class="ti ti-grip-vertical" style="font-size:12px"></i></div>' +
           '<input style="flex:1' + (isRemoved ? ';text-decoration:line-through;color:#991b1b' : '') + '" value="' + esc(it.desc) + '" placeholder="Description" oninput="updateItem(' + c.id + ',' + ii + ',\'desc\',this.value)">' +
           '<button class="btn-icon" style="padding:3px;color:' + (descOn?'var(--accent)':'var(--text2)') + '" title="' + (descOn?'Description shown on invoice — click to hide':'Description hidden on invoice — click to show') + '" onclick="toggleItemVis(' + c.id + ',' + ii + ',\'showDesc\')"><i class="ti ti-' + (descOn?'eye':'eye-off') + '" style="font-size:13px"></i></button>' +
         '</div></td>' +
@@ -682,6 +850,12 @@ function renderCats() {
           '<button class="btn btn-sm multi-day-toggle" style="padding:3px 6px;font-size:10px;line-height:1.2;color:' + (multiDayOn?'var(--accent)':'var(--text2)') + ';border-color:' + (multiDayOn?'var(--accent)':'var(--border2)') + '" title="' + (multiDayOn?'Multi-day pricing ON — click to use normal one-day pricing':'Enable multi-day pricing for this item') + '" onclick="toggleMultiDay(' + c.id + ',' + ii + ')"><i class="ti ti-calendar-time" style="font-size:12px"></i> ' + (multiDayOn ? (days + ' day' + (days==1?'':'s')) : '+ Days') + '</button>' +
         '</div></td>' +
         '<td style="text-align:center"><div style="display:flex;align-items:center;justify-content:center;gap:2px">' +
+          '<div class="item-reorder-group">' +
+            '<button type="button" class="btn-icon" style="padding:1px 3px;font-size:11px" title="Move item to Top" onclick="moveItem(' + c.id + ',' + ii + ',\'top\')"' + (ii===0?' disabled style="opacity:0.25;cursor:not-allowed"':'') + '><i class="ti ti-chevrons-up"></i></button>' +
+            '<button type="button" class="btn-icon" style="padding:1px 3px;font-size:11px" title="Move item Up" onclick="moveItem(' + c.id + ',' + ii + ',-1)"' + (ii===0?' disabled style="opacity:0.25;cursor:not-allowed"':'') + '><i class="ti ti-chevron-up"></i></button>' +
+            '<button type="button" class="btn-icon" style="padding:1px 3px;font-size:11px" title="Move item Down" onclick="moveItem(' + c.id + ',' + ii + ',1)"' + (ii===c.items.length-1?' disabled style="opacity:0.25;cursor:not-allowed"':'') + '><i class="ti ti-chevron-down"></i></button>' +
+            '<button type="button" class="btn-icon" style="padding:1px 3px;font-size:11px" title="Move item to Bottom" onclick="moveItem(' + c.id + ',' + ii + ',\'bottom\')"' + (ii===c.items.length-1?' disabled style="opacity:0.25;cursor:not-allowed"':'') + '><i class="ti ti-chevrons-down"></i></button>' +
+          '</div>' +
           (isRemoved
             ? '<button class="btn-icon" title="Restore item back to standard category" onclick="restoreRemovedItem(' + c.id + ',' + ii + ')" style="color:#16a34a"><i class="ti ti-arrow-back-up" style="font-size:13px"></i></button>'
             : '<button class="btn-icon" title="Move item to Removed Items (Deduction)" onclick="moveItemToRemoved(' + c.id + ',' + ii + ')" style="color:#dc2626"><i class="ti ti-arrow-down-right" style="font-size:13px"></i></button>') +
@@ -703,8 +877,9 @@ function renderCats() {
     var budgetBtnLabel = c.budgetEnabled ? 'Budget: ON' : 'Set category budget';
     var budgetRowDisp = c.budgetEnabled ? 'flex' : 'none';
 
-    html += '<div class="' + blockClass + '" data-cid="' + c.id + '">' +
+    html += '<div class="' + blockClass + '" data-cid="' + c.id + '" ondragover="onCatDragOver(event)" ondragleave="onCatDragLeave(event)" ondrop="onCatDrop(event,' + ci + ')">' +
       '<div class="cat-header">' +
+        '<div class="cat-drag-handle" draggable="true" ondragstart="onCatDragStart(event,' + ci + ')" ondragend="onCatDragEnd(event)" title="Drag to reorder category"><i class="ti ti-grip-vertical"></i></div>' +
         '<div class="cat-color-dot" style="background:' + esc(c.color) + '" onclick="cycleCatColor(' + c.id + ')" title="Change colour"></div>' +
         '<input class="cat-name-input" value="' + esc(c.name) + '" oninput="updateCatField(' + c.id + ',\'name\',this.value)" placeholder="Category name">' +
         '<select class="cat-type-select" onchange="updateCatType(' + c.id + ',this.value)" title="Category role in quotation">' +
@@ -712,6 +887,12 @@ function renderCats() {
           '<option value="additional"' + (catType==='additional'?' selected':'') + ' style="color:#16a34a;font-weight:700">+ Additional (+)</option>' +
           '<option value="removed"' + (catType==='removed'?' selected':'') + ' style="color:#dc2626;font-weight:700">&minus; Removed (&minus;)</option>' +
         '</select>' +
+        '<div class="cat-reorder-group">' +
+          '<button type="button" class="btn-icon" style="padding:2px 4px;font-size:12px" title="Move category to Top" onclick="moveCategory(' + ci + ',\'top\')"' + (ci===0?' disabled style="opacity:0.25;cursor:not-allowed"':'') + '><i class="ti ti-chevrons-up"></i></button>' +
+          '<button type="button" class="btn-icon" style="padding:2px 4px;font-size:12px" title="Move category Up" onclick="moveCategory(' + ci + ',-1)"' + (ci===0?' disabled style="opacity:0.25;cursor:not-allowed"':'') + '><i class="ti ti-chevron-up"></i></button>' +
+          '<button type="button" class="btn-icon" style="padding:2px 4px;font-size:12px" title="Move category Down" onclick="moveCategory(' + ci + ',1)"' + (ci===cats.length-1?' disabled style="opacity:0.25;cursor:not-allowed"':'') + '><i class="ti ti-chevron-down"></i></button>' +
+          '<button type="button" class="btn-icon" style="padding:2px 4px;font-size:12px" title="Move category to Bottom" onclick="moveCategory(' + ci + ',\'bottom\')"' + (ci===cats.length-1?' disabled style="opacity:0.25;cursor:not-allowed"':'') + '><i class="ti ti-chevrons-down"></i></button>' +
+        '</div>' +
         '<button class="btn-icon" onclick="removeCategory(' + c.id + ')" title="Delete category"><i class="ti ti-trash"></i></button>' +
       '</div>' +
       '<div class="cat-table-wrap">' +
