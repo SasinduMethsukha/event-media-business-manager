@@ -2341,7 +2341,11 @@ function loadStoredProfileSession(){
 }
 function profileAccessToken(){return PROFILE_SESSION&&PROFILE_SESSION.access_token?PROFILE_SESSION.access_token:'';}
 function currentProfileRole(){return PROFILE_CURRENT&&PROFILE_CURRENT.role?PROFILE_CURRENT.role:'';}
-function isProfileAdmin(){return currentProfileRole()==='admin';}
+// Admin and Manager can use every business screen; only Admin (the workspace
+// owner) manages the team and the raw database tools.
+function isProfileAdmin(){var r=currentProfileRole();return r==='admin'||r==='manager';}
+function isTeamOwner(){return currentProfileRole()==='admin';}
+function roleLabel(r){return r==='admin'?'Admin':(r==='manager'?'Manager':(r==='employee'?'Staff':(r||'')));}
 function showAuthMode(mode){
   ['login','admin'].forEach(function(x){
     var pane=document.getElementById('authPane'+(x==='login'?'Login':'Admin'));
@@ -2447,7 +2451,7 @@ async function profileLogout(){
 }
 function updateProfileChips(){
   var name=PROFILE_CURRENT?(PROFILE_CURRENT.full_name||PROFILE_CURRENT.email||'User'):'';
-  var role=PROFILE_CURRENT?(PROFILE_CURRENT.role||''):'';
+  var role=PROFILE_CURRENT?roleLabel(PROFILE_CURRENT.role||''):'';
   [['topUserName',name],['topUserRole',role],['managerUserName',name],['managerUserRole',role]].forEach(function(p){var el=document.getElementById(p[0]);if(el)el.textContent=p[1];});
   var top=document.getElementById('topUserChip'),logout=document.getElementById('logoutBtn');if(top)top.style.display='';if(logout)logout.style.display='';
 }
@@ -2488,7 +2492,7 @@ function generateEmployeePassword(){
   if(el)el.value=out;
 }
 async function adminCreateEmployeeAccount(){
-  if(!isProfileAdmin())return alert('Admin access required.');
+  if(!isTeamOwner())return alert('Admin access required.');
   var name=gv('newEmployeeName').trim(),email=gv('newEmployeeEmail').trim(),password=gv('newEmployeePassword');
   if(!name||!email||password.length<6){alert('Enter employee name, email and a password of at least 6 characters.');return;}
   if(!confirm('Create an Employee profile for '+email+' with access only to Supplier Rentals and Equipment Hire?'))return;
@@ -2572,7 +2576,7 @@ function showAdminSessionDiagnostics(){
 }
 
 async function loadProfiles(){
-  if(!isProfileAdmin())return;
+  if(!isTeamOwner())return;
   var wrap=document.getElementById('profilesList');if(!wrap)return;wrap.innerHTML='<div class="manager-empty">Loading profiles...</div>';
   try{
     var url=sbBase()+'/rest/v1/app_profiles?workspace_id=eq.'+encodeURIComponent(gv('sbWorkspace').trim())+'&select=user_id,email,full_name,role,active,created_at&order=created_at.asc';
@@ -2585,7 +2589,7 @@ async function loadProfiles(){
   }catch(e){wrap.innerHTML='<div class="manager-empty">Could not load profiles: '+esc(e.message)+'</div>';}
 }
 async function secureProfileAction(payload){
-  if(!isProfileAdmin())throw new Error('Admin access required.');
+  if(!isTeamOwner())throw new Error('Admin access required.');
   var token=profileAccessToken();
   if(!token)throw new Error('Your Admin session has expired. Sign in again.');
   var r=await fetch(sbBase()+'/functions/v1/manage-profile',{
@@ -2603,14 +2607,14 @@ async function secureProfileAction(payload){
   return data;
 }
 async function updateProfileRole(uid,role){
-  if(!isProfileAdmin()||!confirm('Change this profile role to '+role+'?')){loadProfiles();return;}
+  if(!isTeamOwner()||!confirm('Change this profile role to '+role+'?')){loadProfiles();return;}
   try{
     await secureProfileAction({action:'set_role',user_id:uid,role:role});
     loadProfiles();
   }catch(e){alert(e.message);loadProfiles();}
 }
 async function toggleProfileActive(uid,active){
-  if(!isProfileAdmin()||!confirm((active?'Enable':'Disable')+' this employee profile?'))return;
+  if(!isTeamOwner()||!confirm((active?'Enable':'Disable')+' this employee profile?'))return;
   try{
     await secureProfileAction({action:'set_active',user_id:uid,active:!!active});
     loadProfiles();
@@ -2636,6 +2640,7 @@ function closeManager() {
 }
 function showManagerPane(name) {
   if(!isProfileAdmin() && ['rentals','equipmenthire'].indexOf(name)<0){ name='rentals'; }
+  if(isProfileAdmin() && !isTeamOwner() && ['profiles','admin','database','setup'].indexOf(name)>=0){ name='dashboard'; }
   ['dashboard','invoices','payments','rentals','equipmenthire','finance','reports','database','profiles','admin','setup'].forEach(function(x){
     var pane=document.getElementById('managerPane-'+x), tab=document.getElementById('managerTab-'+x);
     if (pane) pane.style.display = x===name ? '' : 'none';

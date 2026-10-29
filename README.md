@@ -22,9 +22,15 @@ below in this order:
 | `legacy/ai-quote.js` | AI quotation assistant (Gemini or offline parser) |
 | `v4-modern.js` / `.css` | Dashboard analytics and modern UI layer |
 | `v6-enhancements.js` / `.css` | Reliability & usability layer |
+| `v9-team.js` / `v9-team.css` | Sign-in, password reset, account, Team page and roles |
 | `v8-shell.js` / `v8-shell.css` | App shell: side menu, contextual top bar, editor sections |
 | `v7-features.js` / `v7-theme.css` | Theme, advance payment, amount in words, item library, search, WhatsApp share, attention panel |
 | `style.css`, `features.css` | Base styling |
+
+## v9 highlights
+
+- New sign-in with Forgot password / reset link, Account (change password, sign out everywhere).
+- Team page with Admin / Manager / Staff roles. Run `supabase/migrations/202610300001_v9_team_roles.sql` once; see `docs/TEAM-AND-SIGN-IN.md`.
 
 ## v8 highlights
 

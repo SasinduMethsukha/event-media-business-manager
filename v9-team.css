@@ -1,0 +1,160 @@
+/* Event Media OS v9 — sign-in, account and team. Uses v7 tokens. */
+
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.v8-primary-btn { background: var(--ink) !important; border-color: var(--ink) !important; color: var(--surface) !important; }
+.v8-primary-btn i { color: inherit !important; }
+.v8-primary-btn:hover { filter: brightness(1.15); }
+.v9-spin { animation: v9-spin .8s linear infinite; display: inline-block; }
+@keyframes v9-spin { to { transform: rotate(360deg); } }
+.v9-link { border: 0; background: none; padding: 0; color: var(--accent); font: inherit; font-weight: 600; cursor: pointer; }
+.v9-link:hover { text-decoration: underline; }
+
+/* ── Sign-in ──────────────────────────────────────────────────────── */
+.auth-gate.v9-auth { padding: 24px; align-items: center; justify-content: center; background: var(--bg) !important; overflow-y: auto; }
+.v9-auth-shell {
+  width: min(940px, 100%); min-height: 560px; display: grid; grid-template-columns: 1fr 1fr;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 18px; overflow: hidden;
+  box-shadow: 0 30px 80px rgba(18, 22, 31, .14);
+}
+.v9-auth-brand {
+  position: relative; padding: 44px 40px; color: #e9edf5; display: flex; flex-direction: column; gap: 18px;
+  background:
+    radial-gradient(420px 260px at 85% 8%, rgba(214, 41, 62, .55), transparent 70%),
+    radial-gradient(360px 300px at 10% 100%, rgba(232, 150, 46, .22), transparent 70%),
+    #1c2333;
+}
+/* A row of stage-light beams across the top of the panel */
+.v9-auth-brand::before {
+  content: ''; position: absolute; inset: 0 0 auto 0; height: 100%; pointer-events: none; opacity: .5;
+  background: repeating-linear-gradient(100deg, transparent 0 46px, rgba(255, 255, 255, .035) 46px 70px);
+  -webkit-mask-image: linear-gradient(#000, transparent 75%); mask-image: linear-gradient(#000, transparent 75%);
+}
+.v9-auth-logo { width: 46px; height: 46px; border-radius: 12px; background: #fff; color: #1c2333; display: grid; place-items: center; font-size: 24px; position: relative; }
+.v9-auth-brand-name { font: 750 27px/1.1 var(--font-display); font-stretch: 120%; color: #fff; position: relative; margin-top: auto; }
+.v9-auth-pitch { font-size: 15px; line-height: 1.55; color: #c7cedb; max-width: 34ch; position: relative; }
+.v9-auth-points { list-style: none; display: flex; flex-direction: column; gap: 10px; margin-top: 6px; position: relative; }
+.v9-auth-points li { display: flex; align-items: center; gap: 10px; font-size: 13.5px; color: #dfe4ee; }
+.v9-auth-points i { font-size: 18px; color: #ff8a98; }
+
+.v9-auth-card.auth-card { border: 0 !important; box-shadow: none !important; border-radius: 0; padding: 44px 44px 28px; display: flex; flex-direction: column; justify-content: center; max-width: none; width: auto; background: var(--surface); }
+.v9-auth-pane .auth-title { font: 700 26px/1.15 var(--font-display) !important; font-stretch: 118%; letter-spacing: -.01em; margin-bottom: 6px; }
+.v9-auth-pane .auth-sub { color: var(--text2); font-size: 14px; line-height: 1.5; margin-bottom: 22px; }
+.v9-auth-pane .auth-field { margin-bottom: 14px; }
+.v9-auth-pane .auth-field label { display: block; font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+.v9-auth-pane input[type=email], .v9-auth-pane input[type=password], .v9-auth-pane input[type=text], .v9-auth-pane input:not([type]) {
+  width: 100%; padding: 11px 13px; font-size: 15px; border: 1px solid var(--border2); border-radius: 9px; background: var(--surface); color: var(--text);
+}
+.v9-label-row { display: flex; justify-content: space-between; align-items: baseline; }
+.v9-label-row .v9-link { font-size: 12.5px; }
+.v9-caps { display: flex; align-items: center; gap: 5px; margin-top: 6px; font-size: 12.5px; color: var(--warning); }
+.v9-caps[hidden] { display: none; }
+.v9-auth-pane .remember-row { display: flex; align-items: center; gap: 8px; font-size: 13.5px; color: var(--text2); margin: 4px 0 18px; }
+.v9-submit { width: 100%; justify-content: center; padding: 12px 14px !important; font-size: 14.5px !important; border-radius: 9px !important;
+  background: var(--ink) !important; border-color: var(--ink) !important; color: var(--surface) !important; }
+.v9-submit:hover { filter: brightness(1.15); }
+.v9-submit:disabled { opacity: .75; cursor: progress; }
+.v9-auth-foot { margin-top: 16px; font-size: 13.5px; color: var(--text2); text-align: center; }
+.v9-auth-foot[hidden] { display: none; }
+.v9-auth .auth-status { margin-top: 14px; font-size: 13.5px; line-height: 1.45; min-height: 0; padding: 0; border-radius: 9px; }
+.v9-auth .auth-status.v9-status-error { padding: 10px 12px; background: var(--accent-light); color: var(--danger) !important; }
+.v9-auth .auth-status.v9-status-ok { padding: 10px 12px; background: #e8f6ee; color: var(--success) !important; }
+[data-theme=dark] .v9-auth .auth-status.v9-status-ok { background: #183526; }
+.v9-auth-note { margin-top: auto; padding-top: 22px; font-size: 12px; color: var(--text3); display: flex; gap: 6px; align-items: flex-start; }
+.v9-meter { height: 5px; border-radius: 3px; background: var(--surface2); overflow: hidden; margin: -6px 0 4px; }
+.v9-meter span { display: block; height: 100%; width: 0; background: var(--accent); transition: width .2s, background .2s; }
+.v9-meter span[data-level="2"] { background: var(--amber); }
+.v9-meter span[data-level="3"], .v9-meter span[data-level="4"] { background: var(--success); }
+.v9-meter-text { font-size: 12px; color: var(--text3); min-height: 16px; margin-bottom: 8px; }
+.v9-meter-in { margin-left: 18px; margin-right: 18px; }
+
+@media (max-width: 820px) {
+  .v9-auth-shell { grid-template-columns: 1fr; min-height: 0; }
+  .v9-auth-brand { padding: 26px 24px; gap: 10px; }
+  .v9-auth-brand-name { margin-top: 6px; font-size: 22px; }
+  .v9-auth-points, .v9-auth-pitch { display: none; }
+  .v9-auth-card.auth-card { padding: 28px 22px 22px; }
+  .auth-gate.v9-auth { padding: 12px; align-items: flex-start; }
+}
+
+/* ── Team page ────────────────────────────────────────────────────── */
+.v9-team-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 14px; }
+.v9-h2 { font: 700 22px/1.2 var(--font-display); font-stretch: 118%; }
+.v9-sub { color: var(--text2); font-size: 13.5px; margin-top: 4px; }
+.v9-team-tools { display: flex; gap: 8px; flex-wrap: wrap; }
+.v9-team-tools input { padding: 8px 11px; border: 1px solid var(--border2); border-radius: 8px; background: var(--surface); color: var(--text); min-width: 220px; }
+.v9-team-list { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+.v9-member {
+  display: grid; grid-template-columns: 40px minmax(180px, 1.6fr) 110px 150px 120px auto; gap: 14px; align-items: center;
+  padding: 12px 16px; border-bottom: 1px solid var(--border);
+}
+.v9-member:last-child { border-bottom: 0; }
+.v9-member.is-off .v9-member-id, .v9-member.is-off .v9-avatar { opacity: .55; }
+.v9-avatar { width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; background: var(--surface2); border: 1px solid var(--border); font: 700 13px/1 var(--font-display); font-stretch: 112%; color: var(--text); }
+.v9-avatar-lg { width: 52px; height: 52px; font-size: 17px; }
+.v9-member-id { min-width: 0; display: flex; flex-direction: column; }
+.v9-member-id strong { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.v9-member-id span { font-size: 12.5px; color: var(--text3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.v9-you { font-size: 11px; font-weight: 600; color: var(--text2); background: var(--surface2); border: 1px solid var(--border); padding: 1px 6px; border-radius: 99px; margin-left: 4px; }
+.v9-member-seen { font-size: 12.5px; color: var(--text2); }
+.v9-member-role select { width: 100%; padding: 7px 9px; border: 1px solid var(--border2); border-radius: 7px; background: var(--surface); color: var(--text); font: 500 13px var(--font-body); }
+.v9-member-role select:disabled { opacity: .7; cursor: not-allowed; }
+.v9-member-status { font-size: 12.5px; color: var(--text2); display: flex; align-items: center; gap: 6px; }
+.v9-dot { width: 8px; height: 8px; border-radius: 50%; }
+.v9-dot.on { background: var(--success); }
+.v9-dot.off { background: var(--text3); }
+.v9-member-actions { display: flex; gap: 6px; justify-content: flex-end; }
+.v9-member-actions .btn { white-space: nowrap; }
+.v9-role { display: inline-block; font-size: 11.5px; font-weight: 650; padding: 2px 8px; border-radius: 99px; border: 1px solid var(--border); background: var(--surface2); color: var(--text); }
+.v9-role-admin { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+.v9-role-manager { background: var(--accent-light); color: var(--accent); border-color: transparent; }
+.v9-roles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 14px; }
+.v9-role-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; }
+.v9-role-card p { margin-top: 8px; font-size: 13px; color: var(--text2); line-height: 1.5; }
+.v9-fine { margin-top: 12px; font-size: 12.5px; color: var(--text3); }
+.v9-upgrade { display: flex; gap: 14px; align-items: center; padding: 14px 16px; margin-bottom: 14px; border-radius: 12px; background: #fff7e8; border: 1px solid #f3cf91; color: #6b4206; flex-wrap: wrap; }
+.v9-upgrade > i { font-size: 24px; color: var(--amber); }
+.v9-upgrade > div:first-of-type { flex: 1; min-width: 220px; }
+.v9-upgrade p { font-size: 13px; margin-top: 3px; line-height: 1.5; }
+.v9-upgrade-actions { display: flex; gap: 8px; }
+[data-theme=dark] .v9-upgrade { background: #2b2111; border-color: #6a4a17; color: #f5d9a3; }
+.v9-warn { margin: 0 18px 12px; }
+
+@media (max-width: 1100px) {
+  .v9-member { grid-template-columns: 40px 1fr 140px; grid-template-areas: "av id role" "av seen status" "acts acts acts"; row-gap: 8px; }
+  .v9-avatar { grid-area: av; align-self: start; }
+  .v9-member-id { grid-area: id; } .v9-member-role { grid-area: role; } .v9-member-seen { grid-area: seen; }
+  .v9-member-status { grid-area: status; } .v9-member-actions { grid-area: acts; justify-content: flex-start; }
+  .v9-roles { grid-template-columns: 1fr; }
+}
+@media (max-width: 560px) {
+  .v9-member-actions .btn span { display: none; }
+  .v9-team-tools input { min-width: 0; flex: 1; }
+}
+
+/* ── Dialogs (account / add member) ───────────────────────────────── */
+.v9-dialog { width: min(560px, 100%); }
+.v9-form { overflow-y: auto; }
+.v9-form h3 { font-size: 14.5px; font-weight: 700; padding: 6px 18px 10px; }
+.v9-form-msg { padding: 0 18px; font-size: 13px; color: var(--danger); min-height: 18px; }
+.v9-acc-id { display: flex; gap: 14px; align-items: center; padding: 4px 18px 16px; border-bottom: 1px solid var(--border); margin-bottom: 10px; }
+.v9-acc-id > div { display: flex; flex-direction: column; gap: 3px; }
+.v9-acc-id span { font-size: 13px; color: var(--text2); }
+.v9-acc-id .v9-role { align-self: flex-start; }
+.v9-role-pick { border: 0; padding: 0 18px 12px; }
+.v9-role-pick legend { font-size: 12.5px; font-weight: 600; margin-bottom: 6px; }
+.v9-role-opt { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--border); border-radius: 9px; margin-bottom: 6px; cursor: pointer; }
+.v9-role-opt:has(input:checked) { border-color: var(--ink); box-shadow: 0 0 0 1px var(--ink); }
+.v9-role-opt input { margin-top: 3px; accent-color: var(--ink); width: auto !important; }
+.v9-role-opt strong { display: block; font-size: 13.5px; }
+.v9-role-opt small { display: block; font-size: 12.5px; color: var(--text2); line-height: 1.4; }
+.v9-role-opt.is-disabled { opacity: .55; cursor: not-allowed; }
+.v9-pw-row { display: flex; gap: 6px; margin-top: 6px; }
+.v9-pw-row input { margin-top: 0 !important; font-family: ui-monospace, SFMono-Regular, Menlo, monospace !important; }
+
+/* Polish */
+.v9-auth .auth-tabs { display: none !important; }
+.auth-gate.v9-auth::before, .auth-gate.v9-auth::after { display: none !important; }
+.v8-foot-actions { display: grid !important; grid-template-columns: 1fr 1fr; gap: 6px; }
+.v8-foot-actions #v9AccountBtn { grid-column: 1 / -1; }
+.v8-foot-actions .btn { min-width: 0; }
+.v9-sub-lead { font-size: 14.5px; color: var(--text); margin-top: 0; }

@@ -13,6 +13,7 @@
   function $(id) { return document.getElementById(id); }
   function has(fn) { return typeof window[fn] === 'function'; }
   function isAdmin() { return has('isProfileAdmin') ? window.isProfileAdmin() : true; }
+  function isOwner() { return has('isTeamOwner') ? window.isTeamOwner() : isAdmin(); }
   function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
   function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
 
@@ -45,13 +46,13 @@
       { id: 'fx2files', kind: 'manager', icon: 'ti-paperclip', label: 'Files' }
     ] },
     { group: 'Workspace', items: [
-      { id: 'cloud', kind: 'editor', icon: 'ti-cloud', label: 'Cloud & sync' },
-      { id: 'gsheets', kind: 'editor', icon: 'ti-table', label: 'Google Sheets' },
-      { id: 'profiles', kind: 'manager', icon: 'ti-users', label: 'Team profiles' },
-      { id: 'fx2audit', kind: 'manager', icon: 'ti-list-search', label: 'Activity log' },
-      { id: 'database', kind: 'manager', icon: 'ti-database', label: 'Database viewer' },
-      { id: 'admin', kind: 'manager', icon: 'ti-shield-cog', label: 'Edit records' },
-      { id: 'setup', kind: 'manager', icon: 'ti-database-cog', label: 'Database setup' }
+      { id: 'cloud', kind: 'editor', icon: 'ti-cloud', label: 'Cloud & sync', owner: true },
+      { id: 'gsheets', kind: 'editor', icon: 'ti-table', label: 'Google Sheets', owner: true },
+      { id: 'profiles', kind: 'manager', icon: 'ti-users', label: 'Team', owner: true },
+      { id: 'fx2audit', kind: 'manager', icon: 'ti-list-search', label: 'Activity log', owner: true },
+      { id: 'database', kind: 'manager', icon: 'ti-database', label: 'Database viewer', owner: true },
+      { id: 'admin', kind: 'manager', icon: 'ti-shield-cog', label: 'Edit records', owner: true },
+      { id: 'setup', kind: 'manager', icon: 'ti-database-cog', label: 'Database setup', owner: true }
     ] }
   ];
   var BY_ID = {};
@@ -63,6 +64,7 @@
     var it = BY_ID[id];
     if (!it) return;
     if (!isAdmin() && !it.staff) id = 'rentals', it = BY_ID.rentals;
+    else if (it.owner && !isOwner()) id = 'dashboard', it = BY_ID.dashboard;
     if (it.kind === 'editor') {
       if (managerOpen() && has('closeManager')) window.closeManager();
       window.showPane(id);
@@ -90,9 +92,9 @@
   function buildNav() {
     var list = $('v8NavList');
     if (!list) return;
-    var admin = isAdmin();
+    var admin = isAdmin(), owner = isOwner();
     list.innerHTML = NAV.map(function (g) {
-      var items = g.items.filter(function (it) { return admin || it.staff; });
+      var items = g.items.filter(function (it) { return admin ? (!it.owner || owner) : it.staff; });
       if (!items.length) return '';
       return '<div class="v8-group"><div class="v8-group-label">' + g.group + '</div>' + items.map(function (it) {
         return '<button type="button" class="v8-item" data-nav="' + it.id + '"><i class="ti ' + it.icon + '" aria-hidden="true"></i><span>' + it.label + '</span>' +

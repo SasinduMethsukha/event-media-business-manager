@@ -14,7 +14,8 @@ const CLASSIC_SCRIPTS = [
   'v4-modern.js',
   'v6-enhancements.js',
   'v7-features.js',
-  'v8-shell.js'
+  'v8-shell.js',
+  'v9-team.js'
 ];
 
 function copyClassicScripts() {

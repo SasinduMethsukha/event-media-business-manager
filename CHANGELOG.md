@@ -1,5 +1,41 @@
 # Changelog
 
+## v9.0.0 — sign-in and team
+
+Needs `supabase/migrations/202610300001_v9_team_roles.sql` for the Manager role
+and safeguards (see `docs/TEAM-AND-SIGN-IN.md`). Without it the app keeps
+working with Admin and Staff.
+
+### Sign-in
+- New sign-in screen with brand panel; clear error messages instead of raw
+  server text; Caps Lock warning; busy state; Enter submits.
+- **Forgot password**: sends a reset link (the reply is the same for every
+  email address, so the form can't be used to check who has an account).
+- **Choose a new password** page opened from the email link, with a strength
+  meter; expired or used links explain what to do.
+- "Set up the first admin" is only offered for a workspace that has no admin.
+- **Account**: change your password (current password required) and sign
+  out on all devices.
+
+### Team
+- New Team page: everyone with role, on/off status and last activity; search.
+- **Manager** role between Admin and Staff: all business screens, no team or
+  database tools.
+- **Add member** with role choice, generated temporary password, and sign-in
+  details ready to copy or send on WhatsApp.
+- Reset someone's password by email; switch people off and on.
+- Menu shows only what each role can use; Team, Activity log, database tools
+  and cloud settings are Admin-only.
+
+### Database (migration)
+- The last active admin can't be demoted, switched off or deleted.
+- Profile edits limited to name, role and status. A profile can't be moved
+  to another user or workspace.
+- Role and status changes are written to the Activity log.
+- **Fix:** deleting supplier rentals and equipment-hire records silently did
+  nothing (there was no delete permission). Admins and managers can now delete.
+- Tested against Postgres with the full SQL history (27 access-rule checks).
+
 ## v8.0.0 — one app, new navigation
 
 Quotation, invoice and receipt documents are unchanged.
