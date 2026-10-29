@@ -9,7 +9,7 @@ export default [
   { ignores: ['node_modules/**', 'dist/**', 'coverage/**', 'legacy/brand-assets.js'] },
   js.configs.recommended,
   {
-    files: ['legacy/**/*.js', 'v4-modern.js', 'v6-enhancements.js'],
+    files: ['legacy/**/*.js', 'v4-modern.js', 'v6-enhancements.js', 'v7-features.js'],
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: 'script',

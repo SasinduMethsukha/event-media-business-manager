@@ -1,5 +1,40 @@
 # Changelog
 
+## v7.0.0 — "Stage & Tally" theme and new features
+
+### New theme
+- Cool lighting-desk greys, stage navy ink and one tally-light red (the logo
+  red). Headings in Archivo at an expanded width; tabular figures for money.
+- Calm toolbar: neutral buttons instead of six different colours, with
+  **Save** as the single primary action. Its light glows red while there are
+  unsaved changes, like a camera's REC light.
+- Matching "Backstage" dark mode, restyled login, dashboard and charts.
+- Phones: icon-only toolbar with Save always visible.
+- Quotations, invoices and receipts keep their existing design.
+
+### New features
+- **Advance payment** on documents: percentage or fixed amount, with the
+  balance due shown below the grand total.
+- **Amount in words** under the grand total (Rupees / Cents, and the other
+  currencies in the list).
+- **Item library**: every saved document adds its items and latest prices.
+  Descriptions autocomplete; picking a known item fills in its tag and price.
+  "From item library" opens a searchable picker. Included in Export Backup.
+- **Search / command palette** (`Ctrl/Cmd + K`): open any saved document by
+  number, client or event, or run actions (PDF, print, record payment...).
+- **Copy as new document**: from History or the palette; fresh number,
+  today's date, same validity period.
+- **Share on WhatsApp**: an editable summary (number, event, total, advance,
+  validity) sent to the client's number.
+- **Needs attention** strip on the Business Manager dashboard: overdue
+  invoices, invoices due within 7 days, supplier rentals and hired equipment
+  due back within 3 days. Each opens the right screen.
+- **Keyboard shortcuts** list (press `?`).
+- Employees no longer see document tools they cannot use.
+
+### Fixes
+- The preview no longer crashes on categories saved without a colour.
+
 ## v6.0.0 — reliability & usability pass
 
 No features were removed or redesigned; every existing screen, workflow,

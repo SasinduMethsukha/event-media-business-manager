@@ -21,8 +21,16 @@ below in this order:
 | `legacy/features.js` / `features2.js` | Clients, quotes, inventory, receivables / events, crew, payables, files, P&L, audit |
 | `legacy/ai-quote.js` | AI quotation assistant (Gemini or offline parser) |
 | `v4-modern.js` / `.css` | Dashboard analytics and modern UI layer |
-| `v6-enhancements.js` / `.css` | Reliability & usability layer (see below) |
+| `v6-enhancements.js` / `.css` | Reliability & usability layer |
+| `v7-features.js` / `v7-theme.css` | Theme, advance payment, amount in words, item library, search, WhatsApp share, attention panel |
 | `style.css`, `features.css` | Base styling |
+
+## v7 highlights
+
+- New "Stage & Tally" theme with a calm toolbar; Save glows red when there are unsaved changes.
+- Advance payment and amount in words on documents.
+- Item library that learns your prices, `Ctrl/Cmd + K` search, Copy as new, Share on WhatsApp.
+- "Needs attention" panel on the dashboard.
 
 ## v6 improvements
 

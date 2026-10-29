@@ -152,6 +152,8 @@ function fmt(n) {
   return sym + parseFloat(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
 }
 function rgba(hex,a) {
+  // Categories from older/partial snapshots may have no colour - never crash the preview.
+  if (!/^#[0-9a-f]{6}/i.test(String(hex || ''))) hex = CAT_COLORS[0];
   var r=parseInt(hex.slice(1,3),16), g=parseInt(hex.slice(3,5),16), b=parseInt(hex.slice(5,7),16);
   return 'rgba('+r+','+g+','+b+','+a+')';
 }
@@ -1374,6 +1376,8 @@ function renderNow() {
     '<div class="doc-summary-wrap"><div class="summary-inner">' +
       sumLines +
       '<div class="sum-total" style="background:' + accent + '"><span>Grand Total</span><span>' + fmt(t.grand) + '</span></div>' +
+      // Extension point for v7 document options (advance payment, amount in words).
+      (typeof window.docSummaryExtras === 'function' ? window.docSummaryExtras(t, docType) : '') +
     '</div></div>' +
     notes + paymentHtml + sigHtml +
     '</div>';
