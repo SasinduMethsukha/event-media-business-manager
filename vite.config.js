@@ -13,7 +13,8 @@ const CLASSIC_SCRIPTS = [
   'legacy/ai-quote.js',
   'v4-modern.js',
   'v6-enhancements.js',
-  'v7-features.js'
+  'v7-features.js',
+  'v8-shell.js'
 ];
 
 function copyClassicScripts() {

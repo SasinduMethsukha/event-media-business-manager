@@ -20,6 +20,7 @@
 <link rel="stylesheet" href="legacy/ai-quote.css">
 <link rel="stylesheet" href="v6-enhancements.css">
 <link rel="stylesheet" href="v7-theme.css">
+<link rel="stylesheet" href="v8-shell.css">
 </head>
 <body>
 
@@ -59,22 +60,51 @@
   </div>
 </div>
 
+<!-- v8 app shell: one side menu for the whole app (built by v8-shell.js) -->
+<nav id="v8Nav" class="v8-nav" aria-label="Main">
+  <div class="v8-nav-brand"><span class="v8-logo" aria-hidden="true"><i class="ti ti-bolt"></i></span><span><strong>Event Media</strong><small>Business OS</small></span></div>
+  <div class="v8-new-wrap admin-only">
+    <button type="button" class="v8-new" id="v8NewBtn" aria-haspopup="menu" aria-expanded="false"><i class="ti ti-plus"></i> New document</button>
+    <div class="v8-new-menu" id="v8NewMenu" role="menu" hidden></div>
+  </div>
+  <div class="v8-nav-scroll" id="v8NavList"></div>
+  <div class="v8-nav-foot">
+    <span class="user-chip" id="topUserChip" style="display:none"><i class="ti ti-user-circle"></i><span class="v8-user"><strong id="topUserName"></strong><span class="role-chip" id="topUserRole"></span></span></span>
+    <div class="v8-foot-actions">
+      <button class="btn btn-sm" onclick="toggleTheme()" id="themeBtn" title="Switch light / dark"><i class="ti ti-moon"></i> Dark</button>
+      <button class="btn btn-sm" id="logoutBtn" style="display:none" onclick="profileLogout()" title="Log out"><i class="ti ti-logout"></i> Logout</button>
+    </div>
+  </div>
+</nav>
+<div class="v8-scrim" id="v8Scrim" hidden></div>
+
 <div class="topbar">
-  <div class="brand"><i class="ti ti-bolt"></i><span class="brand-copy"><span class="brand-text">Event Media</span><small>Business OS</small></span></div>
+  <button type="button" class="v8-menu-btn" id="v8MenuBtn" aria-label="Open menu" aria-controls="v8Nav" aria-expanded="false"><i class="ti ti-menu-2"></i></button>
+  <div class="v8-title-wrap"><h1 class="v8-title" id="v8Title">Document editor</h1><span class="v8-crumb" id="v8Crumb"></span></div>
   <div class="topbar-right">
-    <span class="user-chip" id="topUserChip" style="display:none"><i class="ti ti-user-circle"></i><strong id="topUserName"></strong><span class="role-chip" id="topUserRole"></span></span>
-    <button class="btn btn-sm" id="logoutBtn" style="display:none" onclick="profileLogout()"><i class="ti ti-logout"></i> Logout</button>
     <button class="btn btn-sm v7-search-btn" id="paletteBtn" onclick="openCommandPalette()" title="Search documents and actions (Ctrl+K)"><i class="ti ti-search"></i><span>Search</span><kbd>Ctrl K</kbd></button>
-    <button class="btn btn-sm btn-ai-quote-top" onclick="openAiQuoteAssistant()" id="aiQuoteTopBtn" title="AI Quotation Assistant"><i class="ti ti-sparkles"></i> AI Quote</button>
-    <button class="btn btn-sm" onclick="openManager()" id="managerTopBtn"><i class="ti ti-layout-dashboard"></i> Business Manager</button>
-    <span class="v7-tool-sep" aria-hidden="true"></span>
-    <button class="btn btn-sm" onclick="printDocument()" title="Print (Ctrl+P)"><i class="ti ti-printer"></i> Print</button>
-    <button class="btn btn-sm" id="pdfBtn" onclick="downloadPDF()" title="Download PDF"><i class="ti ti-file-type-pdf"></i> PDF</button>
-    <button class="btn btn-sm" onclick="downloadPNG()" title="Download image"><i class="ti ti-photo-down"></i> PNG</button>
-    <button class="btn btn-sm" onclick="exportCSV()" title="Download line items as CSV"><i class="ti ti-download"></i> CSV</button>
-    <button class="btn btn-sm" onclick="shareDocWhatsApp()" id="shareBtn" title="Send a summary on WhatsApp"><i class="ti ti-brand-whatsapp"></i> Share</button>
-    <button class="btn btn-sm btn-icon-only" onclick="toggleTheme()" id="themeBtn" title="Switch light / dark"><i class="ti ti-moon"></i> Dark</button>
-    <button class="btn btn-sm v7-save" onclick="saveCurrentDoc()" id="saveDocBtn" title="Save to cloud (Ctrl+S)"><span class="v7-tally" aria-hidden="true"></span><i class="ti ti-device-floppy"></i> Save</button>
+    <div class="v8-ctx" data-ctx="editor">
+      <button class="btn btn-sm btn-ai-quote-top" onclick="openAiQuoteAssistant()" id="aiQuoteTopBtn" title="AI Quotation Assistant"><i class="ti ti-sparkles"></i> AI Quote</button>
+      <span class="v7-tool-sep" aria-hidden="true"></span>
+      <button class="btn btn-sm" onclick="printDocument()" title="Print (Ctrl+P)"><i class="ti ti-printer"></i> Print</button>
+      <button class="btn btn-sm" id="pdfBtn" onclick="downloadPDF()" title="Download PDF"><i class="ti ti-file-type-pdf"></i> PDF</button>
+      <div class="v8-more">
+        <button type="button" class="btn btn-sm" id="v8MoreBtn" aria-haspopup="menu" aria-expanded="false" title="More export options"><i class="ti ti-dots"></i> More</button>
+        <div class="v8-more-menu" id="v8MoreMenu" role="menu" hidden>
+          <button type="button" role="menuitem" onclick="downloadPNG()"><i class="ti ti-photo-down"></i> Download image (PNG)</button>
+          <button type="button" role="menuitem" onclick="exportCSV()"><i class="ti ti-download"></i> Download items (CSV)</button>
+          <button type="button" role="menuitem" onclick="pushToSheets()"><i class="ti ti-table-export"></i> Send to Google Sheets</button>
+          <button type="button" role="menuitem" onclick="duplicateAsNew()"><i class="ti ti-copy"></i> Copy as new document</button>
+          <button type="button" role="menuitem" onclick="createDocRevision()"><i class="ti ti-git-branch"></i> Create revision</button>
+        </div>
+      </div>
+      <button class="btn btn-sm" onclick="shareDocWhatsApp()" id="shareBtn" title="Send a summary on WhatsApp"><i class="ti ti-brand-whatsapp"></i> Share</button>
+      <button class="btn btn-sm v7-save" onclick="saveCurrentDoc()" id="saveDocBtn" title="Save to cloud (Ctrl+S)"><span class="v7-tally" aria-hidden="true"></span><i class="ti ti-device-floppy"></i> Save</button>
+    </div>
+    <div class="v8-ctx" data-ctx="manager" hidden>
+      <button class="btn btn-sm" onclick="loadManagerData()" title="Reload business data"><i class="ti ti-refresh"></i> Refresh</button>
+      <button class="btn btn-sm v7-save admin-only" onclick="v8Go('payments');openPaymentReceiptModal()" title="Record a payment received"><i class="ti ti-receipt"></i> Record payment</button>
+    </div>
   </div>
 </div>
 
@@ -1431,6 +1461,7 @@ grant all privileges on all sequences in schema public to anon, authenticated;
 <script src="v4-modern.js"></script>
 <script src="v6-enhancements.js"></script>
 <script src="v7-features.js"></script>
+<script src="v8-shell.js"></script>
 <script id="v5-module-bootstrap" type="module" src="src/main.js"></script>
 </body>
 </html>

@@ -22,8 +22,15 @@ below in this order:
 | `legacy/ai-quote.js` | AI quotation assistant (Gemini or offline parser) |
 | `v4-modern.js` / `.css` | Dashboard analytics and modern UI layer |
 | `v6-enhancements.js` / `.css` | Reliability & usability layer |
+| `v8-shell.js` / `v8-shell.css` | App shell: side menu, contextual top bar, editor sections |
 | `v7-features.js` / `v7-theme.css` | Theme, advance payment, amount in words, item library, search, WhatsApp share, attention panel |
 | `style.css`, `features.css` | Base styling |
+
+## v8 highlights
+
+- One app with a single side menu (Documents, Money, Operations, Workspace) and a New document button.
+- Top bar shows the page title and only that page's actions.
+- Editor section jump bar, collapsible company details and a live total.
 
 ## v7 highlights
 

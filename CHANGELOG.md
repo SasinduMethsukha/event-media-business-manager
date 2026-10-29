@@ -1,5 +1,26 @@
 # Changelog
 
+## v8.0.0 — one app, new navigation
+
+Quotation, invoice and receipt documents are unchanged.
+
+- **Single side menu** for the whole app, grouped into Documents, Money,
+  Operations and Workspace. It replaces the editor's tab strip, the separate
+  Business Manager screen header and its tab list.
+- **New document** button: blank Quotation, Invoice, Proforma, Purchase order
+  or Credit note (fresh number, today's date, empty client), or start from a
+  template.
+- **Contextual top bar**: page title (document type and number in the editor),
+  search, and only the actions for that page: document actions in the
+  editor, Refresh and Record payment in the Manager. Less-used exports (PNG,
+  CSV, Google Sheets, copy, revision) moved into a More menu.
+- **Editor**: section jump bar (Company, Document, Event, Client, Items,
+  Pricing, Sign-off, Payment) that highlights where you are; company details
+  collapse into one row; sticky live total with an Add item button.
+- The unsaved-changes dot also shows next to "Document editor" in the menu.
+- Phones: the menu opens as a drawer from the ☰ button.
+- Employees see only Supplier rentals and Equipment hire in the menu.
+
 ## v7.0.0 — "Stage & Tally" theme and new features
 
 ### New theme
