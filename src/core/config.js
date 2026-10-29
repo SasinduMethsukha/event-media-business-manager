@@ -9,7 +9,8 @@ export const config = Object.freeze({
 });
 
 export function assertClientConfig() {
-  if (!config.supabaseUrl || !config.supabaseAnonKey) {
-    console.warn('[Event Media OS] Supabase client configuration is missing.');
+  // Only relevant for Vite builds; the static legacy app configures Supabase itself.
+  if ((!config.supabaseUrl || !config.supabaseAnonKey) && config.environment === 'development') {
+    console.info('[Event Media OS] v5 Supabase client not configured (set VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY).');
   }
 }
