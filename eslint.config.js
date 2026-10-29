@@ -9,7 +9,7 @@ export default [
   { ignores: ['node_modules/**', 'dist/**', 'coverage/**', 'legacy/brand-assets.js'] },
   js.configs.recommended,
   {
-    files: ['legacy/**/*.js', 'v4-modern.js', 'v6-enhancements.js', 'v7-features.js'],
+    files: ['legacy/**/*.js', 'v4-modern.js', 'v6-enhancements.js', 'v7-features.js', 'v8-shell.js', 'v9-team.js'],
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: 'script',
@@ -30,7 +30,7 @@ export default [
     rules: { 'no-unused-vars': ['warn', { argsIgnorePattern: '^_' }] }
   },
   {
-    files: ['tests/**/*.js'],
+    files: ['tests/**/*.js', 'tests/**/*.mjs'],
     languageOptions: { ecmaVersion: 2022, sourceType: 'module', globals: { ...globals.browser, ...globals.node } }
   }
 ];

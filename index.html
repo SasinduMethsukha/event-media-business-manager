@@ -20,61 +20,125 @@
 <link rel="stylesheet" href="legacy/ai-quote.css">
 <link rel="stylesheet" href="v6-enhancements.css">
 <link rel="stylesheet" href="v7-theme.css">
+<link rel="stylesheet" href="v8-shell.css">
+<link rel="stylesheet" href="v9-team.css">
 </head>
 <body>
 
-<div id="authGate" class="auth-gate">
-  <div class="auth-card">
-    <div class="auth-logo"><i class="ti ti-shield-lock"></i></div>
-    <div class="auth-title">Event Media Business System</div>
-    <div class="auth-sub">Sign in with your company profile. Create the first Admin once, then all employee accounts are created only from Admin → Profiles.</div>
-    <div class="auth-tabs">
-      <button class="auth-tab active" id="authTabLogin" onclick="showAuthMode('login')">Sign in</button>
-      <button class="auth-tab" id="authTabAdmin" onclick="showAuthMode('admin')">First admin</button>
-    </div>
-
-    <div id="authPaneLogin">
-      <div class="auth-field"><label>Email</label><input id="authEmail" type="email" autocomplete="username" placeholder="you@company.com"></div>
-      <div class="auth-field">
-        <label>Password</label>
-        <div class="login-password-wrap">
-          <input id="authPassword" type="password" autocomplete="current-password" placeholder="Password" onkeydown="if(event.key==='Enter')profileSignIn()">
-          <button type="button" class="login-eye-btn" id="passwordEyeBtn" onclick="toggleLoginPassword()" title="Show password"><i class="ti ti-eye"></i></button>
-        </div>
+<div id="authGate" class="auth-gate v9-auth">
+  <div class="v9-auth-shell">
+    <aside class="v9-auth-brand" aria-hidden="true">
+      <div class="v9-auth-logo"><i class="ti ti-bolt"></i></div>
+      <div class="v9-auth-brand-name">Event Media Production</div>
+      <p class="v9-auth-pitch">Quotations, invoices, payments and event operations in one place for the whole crew.</p>
+      <ul class="v9-auth-points">
+        <li><i class="ti ti-file-invoice"></i> Quote and invoice in minutes</li>
+        <li><i class="ti ti-receipt"></i> Track every payment and balance</li>
+        <li><i class="ti ti-truck-delivery"></i> Rentals and equipment hire for staff</li>
+      </ul>
+    </aside>
+    <div class="auth-card v9-auth-card">
+      <div class="auth-tabs" hidden>
+        <button class="auth-tab active" id="authTabLogin" onclick="showAuthMode('login')">Sign in</button>
+        <button class="auth-tab" id="authTabAdmin" onclick="showAuthMode('admin')">First admin</button>
       </div>
-      <label class="remember-row"><input type="checkbox" id="rememberLogin" checked> Keep me signed in on this device</label>
-      <div class="auth-actions"><button class="btn btn-primary" style="flex:1;justify-content:center" onclick="profileSignIn()"><i class="ti ti-login"></i> Sign in</button></div>
-    </div>
 
-    <div id="authPaneAdmin" style="display:none">
-      <div class="auth-field"><label>Your name</label><input id="authAdminName" placeholder="Admin name"></div>
-      <div class="auth-field"><label>Admin email</label><input id="authAdminEmail" type="email" autocomplete="username" placeholder="admin@company.com"></div>
-      <div class="auth-field"><label>Password</label><input id="authAdminPassword" type="password" autocomplete="new-password" placeholder="Minimum 6 characters"></div>
-      <div class="auth-actions"><button class="btn btn-primary" style="flex:1;justify-content:center" onclick="profileCreateAdmin()"><i class="ti ti-user-shield"></i> Create first admin</button></div>
-      <div class="auth-note">Use this only once after running the profile-access SQL. The first profile created for this Workspace becomes its Admin. Keep Supabase Email confirmation OFF so this works without an email link.</div>
-    </div>
+      <form id="authPaneLogin" class="v9-auth-pane" onsubmit="event.preventDefault();profileSignIn()" novalidate>
+        <h1 class="auth-title">Sign in</h1>
+        <p class="auth-sub">Use the email and password your admin gave you.</p>
+        <div class="auth-field"><label for="authEmail">Email</label><input id="authEmail" type="email" autocomplete="username" inputmode="email" placeholder="you@company.com" required></div>
+        <div class="auth-field">
+          <div class="v9-label-row"><label for="authPassword">Password</label><button type="button" class="v9-link" onclick="showAuthMode('forgot')">Forgot password?</button></div>
+          <div class="login-password-wrap">
+            <input id="authPassword" type="password" autocomplete="current-password" placeholder="Password" required>
+            <button type="button" class="login-eye-btn" id="passwordEyeBtn" onclick="toggleLoginPassword()" aria-label="Show password" title="Show password"><i class="ti ti-eye"></i></button>
+          </div>
+          <div class="v9-caps" id="authCaps" hidden><i class="ti ti-arrow-big-up-line"></i> Caps Lock is on</div>
+        </div>
+        <label class="remember-row"><input type="checkbox" id="rememberLogin" checked> Keep me signed in on this device</label>
+        <div class="auth-actions"><button type="submit" class="btn btn-primary v9-submit" id="authSignInBtn"><i class="ti ti-login"></i> Sign in</button></div>
+        <p class="v9-auth-foot" id="authSetupLink" hidden>New workspace? <button type="button" class="v9-link" onclick="showAuthMode('admin')">Set up the first admin</button></p>
+      </form>
 
-    <div id="authStatus" class="auth-status"></div><div class="auth-note"><i class="ti ti-lock"></i> Keep me signed in stores your secure Supabase session, not your raw password. Your email is remembered on this device.</div>
-    
+      <form id="authPaneForgot" class="v9-auth-pane" style="display:none" onsubmit="event.preventDefault();sendPasswordReset()" novalidate>
+        <h1 class="auth-title">Reset your password</h1>
+        <p class="auth-sub">Enter your email and we'll send you a link to choose a new password.</p>
+        <div class="auth-field"><label for="authForgotEmail">Email</label><input id="authForgotEmail" type="email" autocomplete="username" inputmode="email" placeholder="you@company.com" required></div>
+        <div class="auth-actions"><button type="submit" class="btn btn-primary v9-submit" id="authForgotBtn"><i class="ti ti-mail"></i> Send reset link</button></div>
+        <p class="v9-auth-foot"><button type="button" class="v9-link" onclick="showAuthMode('login')"><i class="ti ti-arrow-left"></i> Back to sign in</button></p>
+      </form>
+
+      <form id="authPaneReset" class="v9-auth-pane" style="display:none" onsubmit="event.preventDefault();completePasswordReset()" novalidate>
+        <h1 class="auth-title">Choose a new password</h1>
+        <p class="auth-sub" id="authResetFor">Use at least 8 characters.</p>
+        <div class="auth-field"><label for="authNewPassword">New password</label><input id="authNewPassword" type="password" autocomplete="new-password" minlength="8" required></div>
+        <div class="v9-meter" aria-hidden="true"><span id="authMeterBar"></span></div>
+        <div class="v9-meter-text" id="authMeterText"></div>
+        <div class="auth-field"><label for="authNewPassword2">Repeat new password</label><input id="authNewPassword2" type="password" autocomplete="new-password" minlength="8" required></div>
+        <div class="auth-actions"><button type="submit" class="btn btn-primary v9-submit" id="authResetBtn"><i class="ti ti-lock-check"></i> Save password and sign in</button></div>
+      </form>
+
+      <form id="authPaneAdmin" class="v9-auth-pane" style="display:none" onsubmit="event.preventDefault();profileCreateAdmin()" novalidate>
+        <h1 class="auth-title">Set up the first admin</h1>
+        <p class="auth-sub">Only needed once for a new workspace. The first account becomes its Admin; everyone else is added later from Team.</p>
+        <div class="auth-field"><label for="authAdminName">Your name</label><input id="authAdminName" autocomplete="name" placeholder="Admin name"></div>
+        <div class="auth-field"><label for="authAdminEmail">Admin email</label><input id="authAdminEmail" type="email" autocomplete="username" placeholder="admin@company.com"></div>
+        <div class="auth-field"><label for="authAdminPassword">Password</label><input id="authAdminPassword" type="password" autocomplete="new-password" placeholder="At least 8 characters"></div>
+        <div class="auth-actions"><button type="submit" class="btn btn-primary v9-submit"><i class="ti ti-user-shield"></i> Create admin account</button></div>
+        <p class="v9-auth-foot"><button type="button" class="v9-link" onclick="showAuthMode('login')"><i class="ti ti-arrow-left"></i> Back to sign in</button></p>
+      </form>
+
+      <div id="authStatus" class="auth-status" role="alert" aria-live="assertive"></div>
+      <p class="auth-note v9-auth-note"><i class="ti ti-lock"></i> "Keep me signed in" stores a secure session on this device, never your password.</p>
+    </div>
   </div>
 </div>
 
+<!-- v8 app shell: one side menu for the whole app (built by v8-shell.js) -->
+<nav id="v8Nav" class="v8-nav" aria-label="Main">
+  <div class="v8-nav-brand"><span class="v8-logo" aria-hidden="true"><i class="ti ti-bolt"></i></span><span><strong>Event Media</strong><small>Business OS</small></span></div>
+  <div class="v8-new-wrap admin-only">
+    <button type="button" class="v8-new" id="v8NewBtn" aria-haspopup="menu" aria-expanded="false"><i class="ti ti-plus"></i> New document</button>
+    <div class="v8-new-menu" id="v8NewMenu" role="menu" hidden></div>
+  </div>
+  <div class="v8-nav-scroll" id="v8NavList"></div>
+  <div class="v8-nav-foot">
+    <span class="user-chip" id="topUserChip" style="display:none"><i class="ti ti-user-circle"></i><span class="v8-user"><strong id="topUserName"></strong><span class="role-chip" id="topUserRole"></span></span></span>
+    <div class="v8-foot-actions">
+      <button class="btn btn-sm" onclick="toggleTheme()" id="themeBtn" title="Switch light / dark"><i class="ti ti-moon"></i> Dark</button>
+      <button class="btn btn-sm" id="logoutBtn" style="display:none" onclick="profileLogout()" title="Log out"><i class="ti ti-logout"></i> Logout</button>
+    </div>
+  </div>
+</nav>
+<div class="v8-scrim" id="v8Scrim" hidden></div>
+
 <div class="topbar">
-  <div class="brand"><i class="ti ti-bolt"></i><span class="brand-copy"><span class="brand-text">Event Media</span><small>Business OS</small></span></div>
+  <button type="button" class="v8-menu-btn" id="v8MenuBtn" aria-label="Open menu" aria-controls="v8Nav" aria-expanded="false"><i class="ti ti-menu-2"></i></button>
+  <div class="v8-title-wrap"><h1 class="v8-title" id="v8Title">Document editor</h1><span class="v8-crumb" id="v8Crumb"></span></div>
   <div class="topbar-right">
-    <span class="user-chip" id="topUserChip" style="display:none"><i class="ti ti-user-circle"></i><strong id="topUserName"></strong><span class="role-chip" id="topUserRole"></span></span>
-    <button class="btn btn-sm" id="logoutBtn" style="display:none" onclick="profileLogout()"><i class="ti ti-logout"></i> Logout</button>
     <button class="btn btn-sm v7-search-btn" id="paletteBtn" onclick="openCommandPalette()" title="Search documents and actions (Ctrl+K)"><i class="ti ti-search"></i><span>Search</span><kbd>Ctrl K</kbd></button>
-    <button class="btn btn-sm btn-ai-quote-top" onclick="openAiQuoteAssistant()" id="aiQuoteTopBtn" title="AI Quotation Assistant"><i class="ti ti-sparkles"></i> AI Quote</button>
-    <button class="btn btn-sm" onclick="openManager()" id="managerTopBtn"><i class="ti ti-layout-dashboard"></i> Business Manager</button>
-    <span class="v7-tool-sep" aria-hidden="true"></span>
-    <button class="btn btn-sm" onclick="printDocument()" title="Print (Ctrl+P)"><i class="ti ti-printer"></i> Print</button>
-    <button class="btn btn-sm" id="pdfBtn" onclick="downloadPDF()" title="Download PDF"><i class="ti ti-file-type-pdf"></i> PDF</button>
-    <button class="btn btn-sm" onclick="downloadPNG()" title="Download image"><i class="ti ti-photo-down"></i> PNG</button>
-    <button class="btn btn-sm" onclick="exportCSV()" title="Download line items as CSV"><i class="ti ti-download"></i> CSV</button>
-    <button class="btn btn-sm" onclick="shareDocWhatsApp()" id="shareBtn" title="Send a summary on WhatsApp"><i class="ti ti-brand-whatsapp"></i> Share</button>
-    <button class="btn btn-sm btn-icon-only" onclick="toggleTheme()" id="themeBtn" title="Switch light / dark"><i class="ti ti-moon"></i> Dark</button>
-    <button class="btn btn-sm v7-save" onclick="saveCurrentDoc()" id="saveDocBtn" title="Save to cloud (Ctrl+S)"><span class="v7-tally" aria-hidden="true"></span><i class="ti ti-device-floppy"></i> Save</button>
+    <div class="v8-ctx" data-ctx="editor">
+      <button class="btn btn-sm btn-ai-quote-top" onclick="openAiQuoteAssistant()" id="aiQuoteTopBtn" title="AI Quotation Assistant"><i class="ti ti-sparkles"></i> AI Quote</button>
+      <span class="v7-tool-sep" aria-hidden="true"></span>
+      <button class="btn btn-sm" onclick="printDocument()" title="Print (Ctrl+P)"><i class="ti ti-printer"></i> Print</button>
+      <button class="btn btn-sm" id="pdfBtn" onclick="downloadPDF()" title="Download PDF"><i class="ti ti-file-type-pdf"></i> PDF</button>
+      <div class="v8-more">
+        <button type="button" class="btn btn-sm" id="v8MoreBtn" aria-haspopup="menu" aria-expanded="false" title="More export options"><i class="ti ti-dots"></i> More</button>
+        <div class="v8-more-menu" id="v8MoreMenu" role="menu" hidden>
+          <button type="button" role="menuitem" onclick="downloadPNG()"><i class="ti ti-photo-down"></i> Download image (PNG)</button>
+          <button type="button" role="menuitem" onclick="exportCSV()"><i class="ti ti-download"></i> Download items (CSV)</button>
+          <button type="button" role="menuitem" onclick="pushToSheets()"><i class="ti ti-table-export"></i> Send to Google Sheets</button>
+          <button type="button" role="menuitem" onclick="duplicateAsNew()"><i class="ti ti-copy"></i> Copy as new document</button>
+          <button type="button" role="menuitem" onclick="createDocRevision()"><i class="ti ti-git-branch"></i> Create revision</button>
+        </div>
+      </div>
+      <button class="btn btn-sm" onclick="shareDocWhatsApp()" id="shareBtn" title="Send a summary on WhatsApp"><i class="ti ti-brand-whatsapp"></i> Share</button>
+      <button class="btn btn-sm v7-save" onclick="saveCurrentDoc()" id="saveDocBtn" title="Save to cloud (Ctrl+S)"><span class="v7-tally" aria-hidden="true"></span><i class="ti ti-device-floppy"></i> Save</button>
+    </div>
+    <div class="v8-ctx" data-ctx="manager" hidden>
+      <button class="btn btn-sm" onclick="loadManagerData()" title="Reload business data"><i class="ti ti-refresh"></i> Refresh</button>
+      <button class="btn btn-sm v7-save admin-only" onclick="v8Go('payments');openPaymentReceiptModal()" title="Record a payment received"><i class="ti ti-receipt"></i> Record payment</button>
+    </div>
   </div>
 </div>
 
@@ -1431,6 +1495,8 @@ grant all privileges on all sequences in schema public to anon, authenticated;
 <script src="v4-modern.js"></script>
 <script src="v6-enhancements.js"></script>
 <script src="v7-features.js"></script>
+<script src="v8-shell.js"></script>
+<script src="v9-team.js"></script>
 <script id="v5-module-bootstrap" type="module" src="src/main.js"></script>
 </body>
 </html>
