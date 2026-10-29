@@ -96,7 +96,7 @@ function addDaysISO(iso, days) {
 }
 // ── TOASTS ──
 // Non-blocking notifications. window.alert() is routed through here too (see
-// legacy/app-enhancements.js) so success messages no longer freeze the page.
+// v6-enhancements.js) so success messages no longer freeze the page.
 function showToast(message, type, ms) {
   try {
     var host = document.getElementById('toastHost');
@@ -125,9 +125,8 @@ function showToast(message, type, ms) {
 }
 
 // ── UNSAVED-CHANGE TRACKING ──
-var _docDirty = false, _docDirtySuspended = 0;
+var _docDirty = false;
 function markDocDirty() {
-  if (_docDirtySuspended) return;
   _docDirty = true;
   var b = document.getElementById('saveDocBtn');
   if (b) b.classList.add('has-unsaved');
@@ -3377,8 +3376,9 @@ function printWithMode(cls, targetEl) {
   };
   window.addEventListener('afterprint', done);
   window.print();
-  // Some mobile browsers never fire afterprint.
-  setTimeout(done, 1500);
+  // Some mobile browsers never fire afterprint and print asynchronously. The
+  // class only affects print styles, so a generous fallback is harmless.
+  setTimeout(done, 60000);
 }
 function printDocument() { printWithMode('print-doc'); }
 function printSection(el) { if (typeof el === 'string') el = document.getElementById(el); if (el) printWithMode('print-section', el); }

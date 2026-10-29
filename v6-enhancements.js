@@ -252,15 +252,24 @@
   // Native Ctrl+P / browser menu printing: make sure the preview is current.
   // Pages are paginated for the on-screen width; scale them to A4's printable
   // width (190mm at 96dpi ≈ 718px) so every sheet lands on exactly one page.
+  var autoReceiptPrint = false;
+  window.addEventListener('afterprint', function () {
+    if (autoReceiptPrint) { document.body.classList.remove('print-receipt'); autoReceiptPrint = false; }
+  });
   window.addEventListener('beforeprint', function () {
     if (has('flushRender')) window.flushRender();
+    // Ctrl+P while a receipt is open prints the receipt, as before.
+    if (document.querySelector('#receiptDocModal.open') && !document.body.classList.contains('print-receipt')) {
+      document.body.classList.add('print-receipt');
+      autoReceiptPrint = true;
+    }
     var doc = document.getElementById('invoiceDoc');
     var pane = document.querySelector('.preview-pane');
     if (!doc || !pane) return;
-    var w = doc.getBoundingClientRect().width;
-    if (!w) return;
     var innerZoom = parseFloat(doc.style.zoom) || 1;
-    pane.style.setProperty('--print-doc-width', (w / innerZoom) + 'px');
+    var w = doc.offsetWidth * innerZoom; // ignores the phone preview's fit-to-screen zoom
+    if (!w) return;
+    pane.style.setProperty('--print-doc-width', doc.offsetWidth + 'px');
     pane.style.setProperty('--print-zoom', String(Math.min(1.5, (718 / w) * 0.985)));
   });
 
