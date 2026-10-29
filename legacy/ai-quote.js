@@ -3,6 +3,42 @@
 (function () {
   'use strict';
 
+  // Model used for Gemini calls. Google retires model versions over time, so a
+  // stable alias is tried after the configured model if it returns 404.
+  // Override per browser with localStorage 'ai_gemini_model'.
+  var GEMINI_DEFAULT_MODEL = 'gemini-2.5-flash';
+  var GEMINI_FALLBACK_MODELS = ['gemini-flash-latest'];
+  function geminiModels() {
+    var custom = '';
+    try { custom = (localStorage.getItem('ai_gemini_model') || '').trim(); } catch (e) {}
+    var list = [custom || GEMINI_DEFAULT_MODEL].concat(GEMINI_FALLBACK_MODELS);
+    return list.filter(function (m, i) { return m && list.indexOf(m) === i; });
+  }
+  // The API key is sent as a header instead of a ?key= query parameter so it
+  // does not end up in browser history, proxy logs or Referer headers.
+  async function geminiFetch(body, apiKey) {
+    var key = apiKey || getGeminiKey();
+    var models = geminiModels(), lastResponse = null;
+    for (var i = 0; i < models.length; i++) {
+      var res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(models[i]) + ':generateContent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
+        body: JSON.stringify(body)
+      });
+      if (res.status !== 404) return res;
+      lastResponse = res;
+    }
+    return lastResponse;
+  }
+  function escHtml(v) {
+    return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  function safeColor(c, fallback) {
+    return /^#[0-9a-f]{3,8}$/i.test(String(c || '')) ? c : (fallback || '#1a56db');
+  }
+
   // Industry-standard categories for Event Media & AV Production
   var AI_CATEGORIES = [
     {
@@ -172,7 +208,7 @@
     var badges = document.querySelectorAll('.ai-model-badge-text');
     badges.forEach(function (el) {
       if (key) {
-        el.innerHTML = '<i class="ti ti-sparkles" style="color:#a855f7"></i> Gemini 2.5 Flash';
+        el.innerHTML = '<i class="ti ti-sparkles" style="color:#a855f7"></i> Gemini Flash';
       } else {
         el.innerHTML = '<i class="ti ti-cpu" style="color:#0ea5e9"></i> Smart NLP Engine';
       }
@@ -190,6 +226,10 @@
 
   // Helper: Toast notifications
   function showToast(msg, type) {
+    // Use the app-wide toast when available so all notifications look the same.
+    if (typeof window.showToast === 'function' && window.showToast !== showToast) {
+      return window.showToast(msg, type === 'error' ? 'error' : 'success');
+    }
     var toast = document.getElementById('aiToast');
     if (!toast) {
       toast = document.createElement('div');
@@ -200,7 +240,7 @@
     var icon = (type === 'error') ? 'ti-alert-circle' : 'ti-sparkles';
     var bg = (type === 'error') ? '#dc2626' : 'linear-gradient(135deg, #10b981, #059669)';
     toast.style.background = bg;
-    toast.innerHTML = '<i class="ti ' + icon + '" style="font-size:18px"></i><span>' + msg + '</span>';
+    toast.innerHTML = '<i class="ti ' + icon + '" style="font-size:18px"></i><span>' + escHtml(msg) + '</span>';
     toast.classList.add('show');
     setTimeout(function () {
       toast.classList.remove('show');
@@ -512,7 +552,6 @@
 
     var prompt = 'Here is the quotation text to categorize:\n\n' + userText;
 
-    var endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=' + encodeURIComponent(apiKey);
 
     var payload = {
       contents: [
@@ -525,15 +564,44 @@
       ],
       generationConfig: {
         responseMimeType: 'application/json',
+        // Pin the JSON shape so the reply always matches what we parse below.
+        responseSchema: {
+          type: 'OBJECT',
+          properties: {
+            categories: {
+              type: 'ARRAY',
+              items: {
+                type: 'OBJECT',
+                properties: {
+                  name: { type: 'STRING' },
+                  color: { type: 'STRING' },
+                  items: {
+                    type: 'ARRAY',
+                    items: {
+                      type: 'OBJECT',
+                      properties: {
+                        desc: { type: 'STRING' },
+                        tag: { type: 'STRING' },
+                        qty: { type: 'NUMBER' },
+                        unit: { type: 'NUMBER' },
+                        days: { type: 'NUMBER' },
+                        multiDay: { type: 'BOOLEAN' }
+                      },
+                      required: ['desc', 'qty', 'unit']
+                    }
+                  }
+                },
+                required: ['name', 'items']
+              }
+            }
+          },
+          required: ['categories']
+        },
         temperature: 0.15
       }
     };
 
-    var response = await fetch(endpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
+    var response = await geminiFetch(payload, apiKey);
 
     if (!response.ok) {
       var errText = await response.text();
@@ -570,8 +638,8 @@
         var d = Math.max(1, parseInt(it.days, 10) || 1);
         var u = Math.max(0, parseFloat(it.unit || it.unit_price || it.rate || 0));
         var mDay = !!it.multiDay || d > 1;
-        var tag = it.tag || 'General';
-        var desc = it.desc || it.description || it.name || 'Item';
+        var tag = String(it.tag || 'General');
+        var desc = String(it.desc || it.description || it.name || 'Item');
         return {
           desc: desc,
           tag: tag,
@@ -590,9 +658,9 @@
       });
 
       return {
-        name: c.name || c.category || ('Category ' + (idx + 1)),
-        type: c.type || 'standard',
-        color: color,
+        name: String(c.name || c.category || ('Category ' + (idx + 1))),
+        type: (c.type === 'additional' || c.type === 'removed') ? c.type : 'standard',
+        color: safeColor(color),
         note: c.note || '',
         items: items
       };
@@ -661,7 +729,7 @@
       if (previewArea) {
         previewArea.innerHTML =
           '<div class="ai-error-box">' +
-            '<strong><i class="ti ti-alert-circle"></i> Categorization failed:</strong> ' + err.message +
+            '<strong><i class="ti ti-alert-circle"></i> Categorization failed:</strong> ' + escHtml(err.message) +
             '<div style="margin-top:6px;font-size:12px">Try clicking one of the sample presets above for an example format.</div>' +
           '</div>';
       }
@@ -708,7 +776,7 @@
     html += '      <span>AI Categorized ' + totalItems + ' items in ' + catList.length + ' categories</span>';
     html += '    </div>';
     html += '    <div style="font-size:12px;color:var(--text2);margin-top:2px">';
-    html += '      Engine: <strong>' + (usedGemini ? 'Google Gemini 2.5 Flash' : 'Smart NLP Engine') + '</strong> &bull; Total: <strong style="color:var(--accent)">' + currency + grandTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '</strong>';
+    html += '      Engine: <strong>' + (usedGemini ? 'Google Gemini (' + escHtml(geminiModels()[0]) + ')' : 'Smart NLP Engine') + '</strong> &bull; Total: <strong style="color:var(--accent)">' + currency + grandTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '</strong>';
     html += '    </div>';
     html += '  </div>';
     html += '</div>';
@@ -717,11 +785,11 @@
     html += '<div class="ai-cats-preview-list">';
     catList.forEach(function (cat, cIdx) {
       var catSubtotal = (cat.items || []).reduce(function (s, it) { return s + (it.unit * it.qty * (it.days || 1)); }, 0);
-      html += '<div class="ai-cat-card" style="border-left:4px solid ' + (cat.color || '#1a56db') + '">';
+      html += '<div class="ai-cat-card" style="border-left:4px solid ' + safeColor(cat.color) + '">';
       html += '  <div class="ai-cat-card-header">';
       html += '    <div style="display:flex;align-items:center;gap:6px">';
-      html += '      <span class="ai-cat-color-dot" style="background:' + (cat.color || '#1a56db') + '"></span>';
-      html += '      <strong style="font-size:13px">' + (cat.name || 'Category') + '</strong>';
+      html += '      <span class="ai-cat-color-dot" style="background:' + safeColor(cat.color) + '"></span>';
+      html += '      <strong style="font-size:13px">' + escHtml(cat.name || 'Category') + '</strong>';
       html += '      <span class="ai-cat-count">(' + (cat.items ? cat.items.length : 0) + ' items)</span>';
       html += '    </div>';
       html += '    <div style="font-weight:700;font-size:12.5px">' + currency + catSubtotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '</div>';
@@ -733,11 +801,11 @@
         var itTotal = it.unit * it.qty * (it.days || 1);
         html += '    <div class="ai-item-row" data-cidx="' + cIdx + '" data-iidx="' + itIdx + '">';
         html += '      <div class="ai-item-desc-col">';
-        html += '        <span class="ai-item-tag">' + (it.tag || 'General') + '</span>';
-        html += '        <span class="ai-item-name">' + (it.desc || '') + '</span>';
+        html += '        <span class="ai-item-tag">' + escHtml(it.tag || 'General') + '</span>';
+        html += '        <span class="ai-item-name">' + escHtml(it.desc || '') + '</span>';
         html += '      </div>';
         html += '      <div class="ai-item-calc-col">';
-        html += '        <span class="ai-item-qty">' + it.qty + 'x ' + (it.days > 1 ? '(' + it.days + 'd) ' : '') + '@ ' + it.unit.toLocaleString() + '</span>';
+        html += '        <span class="ai-item-qty">' + escHtml(it.qty) + 'x ' + (it.days > 1 ? '(' + escHtml(it.days) + 'd) ' : '') + '@ ' + Number(it.unit || 0).toLocaleString() + '</span>';
         html += '        <strong class="ai-item-total">' + currency + itTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '</strong>';
         html += '        <button type="button" class="btn-icon ai-item-del-btn" title="Remove item" onclick="AiQuote.removePreviewItem(' + cIdx + ',' + itIdx + ',' + (isModal ? 'true' : 'false') + ')"><i class="ti ti-trash"></i></button>';
         html += '      </div>';
@@ -797,6 +865,17 @@
     var addedCatCount = 0;
     var addedItemCount = 0;
 
+    // The editor prices multi-day lines from multiDayPrice (a total for all
+    // days). Parsed items only carry unit/qty/days, so without this they were
+    // inserted with a 0.00 total.
+    function toAppItem(it) {
+      var o = Object.assign({}, it);
+      if (o.multiDay && !isFinite(parseFloat(o.multiDayPrice))) {
+        o.multiDayPrice = (Number(o.unit) || 0) * (Number(o.qty) || 1) * (Number(o.days) || 1);
+      }
+      return o;
+    }
+
     lastParsedData.forEach(function (newCat) {
       // If append mode, check if a category with exact/similar name already exists
       var existingCat = null;
@@ -810,7 +889,7 @@
       if (existingCat) {
         // Append items to existing category
         newCat.items.forEach(function (it) {
-          existingCat.items.push(Object.assign({}, it));
+          existingCat.items.push(toAppItem(it));
           addedItemCount++;
         });
       } else {
@@ -820,7 +899,7 @@
           type: newCat.type || 'standard',
           color: newCat.color || (window.CAT_COLORS ? window.CAT_COLORS[window.cats.length % window.CAT_COLORS.length] : '#1a56db'),
           note: newCat.note || '',
-          items: newCat.items.map(function (it) { return Object.assign({}, it); })
+          items: newCat.items.map(toAppItem)
         });
         addedCatCount++;
         addedItemCount += (newCat.items ? newCat.items.length : 0);
@@ -918,7 +997,7 @@
     setGeminiKey(key);
     closeAiKeySettings();
     if (key) {
-      showToast('✨ Gemini API key saved! AI is now powered by Gemini 2.5 Flash.');
+      showToast('✨ Gemini API key saved! AI is now powered by Google Gemini (' + geminiModels()[0] + ').');
     } else {
       showToast('API key removed. Running in built-in offline Smart NLP mode.');
     }
@@ -938,13 +1017,9 @@
     }
 
     try {
-      var res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + encodeURIComponent(key), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: 'Respond with exactly: OK' }] }]
-        })
-      });
+      var res = await geminiFetch({
+        contents: [{ parts: [{ text: 'Respond with exactly: OK' }] }]
+      }, key);
 
       if (!res.ok) {
         var err = await res.text();
@@ -952,11 +1027,11 @@
       }
 
       if (statusEl) {
-        statusEl.innerHTML = '<span style="color:#16a34a;font-weight:600"><i class="ti ti-check"></i> Connected successfully! Google Gemini 2.5 Flash is ready.</span>';
+        statusEl.innerHTML = '<span style="color:#16a34a;font-weight:600"><i class="ti ti-check"></i> Connected successfully! Google Gemini (' + escHtml(geminiModels()[0]) + ') is ready.</span>';
       }
     } catch (e) {
       if (statusEl) {
-        statusEl.innerHTML = '<span style="color:#dc2626"><i class="ti ti-alert-circle"></i> Connection failed: ' + e.message + '</span>';
+        statusEl.innerHTML = '<span style="color:#dc2626"><i class="ti ti-alert-circle"></i> Connection failed: ' + String(e.message || e).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }) + '</span>';
       }
     }
   }

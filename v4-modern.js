@@ -18,7 +18,7 @@
     d.setDate(1);
     for(var i=n-1;i>=0;i--){
       var x=new Date(d.getFullYear(),d.getMonth()-i,1);
-      a.push({key:x.toISOString().slice(0,7),label:x.toLocaleDateString(undefined,{month:'short'})});
+      a.push({key:x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0'),label:x.toLocaleDateString(undefined,{month:'short'})});
     }
     return a;
   }
@@ -38,7 +38,12 @@
       var k=monthKey(x.payment_date||x.receipt_date||x.created_at);
       if(map[k])map[k].collected+=num(x.amount);
     });
+    // Legacy invoice_payments only count for invoices that have no receipts,
+    // matching invoicePaidAmount() - otherwise the same money is counted twice.
+    var withReceipts={};
+    (st.paymentReceipts||[]).forEach(function(x){if(x.invoice_id)withReceipts[x.invoice_id]=true;});
     (st.payments||[]).forEach(function(x){
+      if(x.invoice_id&&withReceipts[x.invoice_id])return;
       var k=monthKey(x.payment_date||x.created_at);
       if(map[k])map[k].collected+=num(x.amount);
     });
@@ -122,7 +127,9 @@
     var rows=sumsForMonths(),yrRows=currentYearRows();
     var thisMonth=rows[rows.length-1],year=String(new Date().getFullYear());
     var ytd=yrRows.reduce(function(s,r){return s+r.revenue;},0);
-    var defaultMonthly=Math.max(1,Math.round(Math.max.apply(null,rows.map(function(r){return r.revenue;}))*1.1));
+    var peak=Math.max.apply(null,rows.map(function(r){return r.revenue;}));
+    // Round the suggested target to a tidy figure; fall back to Rs. 500,000/month with no data yet.
+    var defaultMonthly=peak>0?Math.ceil(Math.round(peak*1.1)/10000)*10000:500000;
     var monthlyTarget=Number(localStorage.getItem('eventmedia:v4:monthlyTarget')||defaultMonthly);
     var annualTarget=Number(localStorage.getItem('eventmedia:v4:annualTarget')||Math.max(monthlyTarget*12,1));
     var pct=Math.min(100,Math.round(ytd/Math.max(annualTarget,1)*100));

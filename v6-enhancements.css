@@ -1,0 +1,193 @@
+/* Event Media OS v6 — usability layer (loaded last).
+   Toasts, draft banner, unsaved indicator, roomier item editor, mobile
+   preview, print rules and accessibility. Visual language follows v4. */
+
+/* ── Wider editor column on large screens ───────────────────────────── */
+@media (min-width: 1200px) {
+  .main { grid-template-columns: clamp(430px, 34vw, 540px) 1fr; }
+}
+
+/* ── Toasts ─────────────────────────────────────────────────────────── */
+.toast-host {
+  position: fixed; right: 18px; bottom: 18px; z-index: 20000;
+  display: flex; flex-direction: column; gap: 8px; align-items: flex-end;
+  pointer-events: none; max-width: min(420px, calc(100vw - 24px));
+}
+.toast {
+  pointer-events: auto; display: flex; align-items: flex-start; gap: 10px;
+  padding: 11px 12px 11px 14px; border-radius: 12px; font-size: 13px; line-height: 1.45;
+  background: #111827; color: #f9fafb; box-shadow: 0 14px 40px rgba(0,0,0,.22);
+  border-left: 4px solid #60a5fa; animation: toast-in .22s ease-out both;
+}
+.toast i { font-size: 18px; margin-top: 1px; flex: none; }
+.toast-success { border-left-color: #22c55e; }
+.toast-success i { color: #4ade80; }
+.toast-error { border-left-color: #ef4444; }
+.toast-error i { color: #f87171; }
+.toast-info i { color: #93c5fd; }
+.toast-msg { white-space: pre-line; word-break: break-word; flex: 1; }
+.toast-close {
+  background: none; border: 0; color: inherit; opacity: .6; cursor: pointer;
+  font-size: 18px; line-height: 1; padding: 0 2px; margin-left: 2px;
+}
+.toast-close:hover, .toast-close:focus-visible { opacity: 1; }
+.toast-out { animation: toast-out .2s ease-in both; }
+@keyframes toast-in { from { opacity: 0; transform: translateY(8px) scale(.98); } to { opacity: 1; transform: none; } }
+@keyframes toast-out { to { opacity: 0; transform: translateY(6px); } }
+@media (max-width: 640px) {
+  .toast-host { left: 12px; right: 12px; bottom: 76px; align-items: stretch; max-width: none; }
+}
+
+/* ── Unsaved changes indicator on Save ──────────────────────────────── */
+#saveDocBtn { position: relative; }
+#saveDocBtn.has-unsaved::after {
+  content: ''; position: absolute; top: -3px; right: -3px; width: 10px; height: 10px;
+  border-radius: 50%; background: #f59e0b; border: 2px solid var(--surface);
+}
+
+/* ── Draft recovery banner ──────────────────────────────────────────── */
+.draft-banner {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  margin: 0 0 14px; padding: 10px 12px; border-radius: 12px;
+  background: #fffbeb; border: 1px solid #fcd34d; color: #78350f; font-size: 12.5px;
+}
+.draft-banner > i { font-size: 20px; color: #d97706; }
+.draft-banner-text { flex: 1; min-width: 180px; display: flex; flex-direction: column; gap: 1px; }
+.draft-banner-text span { color: #92400e; opacity: .9; }
+.draft-banner-actions { display: flex; gap: 6px; }
+[data-theme=dark] .draft-banner { background: #2b2111; border-color: #78501a; color: #fde68a; }
+[data-theme=dark] .draft-banner-text span { color: #fcd34d; }
+
+/* ── Item editor: two-row cards instead of a squeezed 6-column table ─
+   Row 1: description ............ total & pricing toggles
+   Row 2: tag | qty | unit price | reorder / move / delete            */
+.cat-table-wrap { overflow-x: visible; }
+.item-table { display: block; min-width: 0 !important; width: 100%; table-layout: auto; }
+.item-table thead, .item-table tbody { display: block; }
+.item-table thead tr {
+  display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px;
+  padding: 6px 8px; background: var(--surface2); border-bottom: 1px solid var(--border);
+}
+.item-table thead tr::before {
+  content: 'Column labels'; grid-column: 1 / -1; font-size: 9.5px; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--text3); font-weight: 700;
+}
+.item-table thead th {
+  width: auto !important; min-width: 0 !important; padding: 0 !important; background: none !important;
+  border: 0 !important; text-align: left !important; display: flex; align-items: center; font-size: 10px;
+}
+.item-table thead th:last-child { display: none; }
+.item-table thead th input { min-width: 0; border: 1px dashed transparent !important; border-radius: 5px; }
+.item-table thead th input:hover, .item-table thead th input:focus { border-color: var(--border2) !important; outline: none; }
+
+tr.item-row {
+  display: grid; gap: 4px 6px; padding: 9px 8px 6px; border-bottom: 1px solid var(--border);
+  grid-template-columns: minmax(0, 1fr) 76px minmax(186px, 1fr);
+  grid-template-areas: "desc desc desc" "tag qty unit" "total total act";
+  align-items: end;
+}
+tr.item-row:last-child { border-bottom: 0; }
+tr.item-row td { display: block; padding: 0 !important; border: 0 !important; min-width: 0; }
+tr.item-row td.item-cell-desc { grid-area: desc; align-self: center; }
+tr.item-row td.item-cell-tag { grid-area: tag; }
+tr.item-row td.item-cell-qty { grid-area: qty; }
+tr.item-row td.item-cell-unit { grid-area: unit; }
+tr.item-row td.item-cell-total { grid-area: total; align-self: center; padding-top: 2px !important; }
+tr.item-row td.item-cell-actions { grid-area: act; }
+tr.item-row td[data-label]:not(.item-cell-desc):not(.item-cell-total)::before {
+  content: attr(data-label); display: block; font-size: 9.5px; font-weight: 700; letter-spacing: .05em;
+  text-transform: uppercase; color: var(--text3); margin: 2px 0 1px 2px;
+}
+tr.item-row td.item-cell-desc input { font-size: 13px; font-weight: 500; }
+tr.item-row input { border-color: var(--border) !important; background: var(--surface) !important; }
+tr.item-row input:focus { border-color: var(--accent) !important; box-shadow: 0 0 0 3px var(--accent-light); }
+tr.item-row td.item-cell-total > div { justify-content: flex-end; }
+tr.item-row td.item-cell-total .item-line-total { font-size: 13px !important; min-width: 84px; white-space: nowrap; }
+tr.item-row td.item-cell-total input[type=number] { max-width: 110px; }
+tr.item-row td.item-cell-actions > div { justify-content: flex-end !important; padding-bottom: 2px; }
+tr.item-row .item-reorder-group { display: flex; }
+tr.multi-day-row { display: block; }
+tr.multi-day-row td { display: block; }
+@media (max-width: 420px) {
+  tr.item-row { grid-template-columns: minmax(0, 1fr) 88px minmax(0, 1fr); grid-template-areas: "desc desc desc" "tag qty unit" "total total total" "act act act"; }
+  tr.item-row td.item-cell-qty input { padding-left: 4px !important; padding-right: 4px !important; }
+}
+/* Category header: let controls wrap instead of being clipped */
+.cat-header { flex-wrap: wrap; row-gap: 6px; }
+.cat-header .cat-name-input { flex: 1 1 140px; min-width: 120px; }
+.cat-header .cat-reorder-group { display: flex; flex-wrap: nowrap; }
+
+/* ── Quotation preview: keep amounts on one line ────────────────────── */
+.doc-item > span:not(:first-child), .items-head > span:not(:first-child) { white-space: nowrap; text-align: right; }
+
+/* ── Mobile: preview off-screen (keeps pagination/PDF correct) + toggle ─ */
+.mobile-preview-fab { display: none; }
+@media (max-width: 780px) {
+  .preview-pane {
+    display: block !important; position: absolute !important; left: -12000px !important; top: 0;
+    width: 760px; visibility: hidden; pointer-events: none;
+  }
+  body.mobile-preview .preview-pane {
+    position: fixed !important; left: 0 !important; right: 0; top: 0; bottom: 0; width: auto;
+    z-index: 900; overflow: auto; visibility: visible; pointer-events: auto; padding: 12px 10px 90px !important;
+    background: var(--bg);
+  }
+  body.mobile-preview { overflow: hidden; }
+  .mobile-preview-fab {
+    display: inline-flex; align-items: center; gap: 6px; position: fixed; z-index: 950;
+    right: 14px; bottom: 16px; padding: 11px 16px; border-radius: 999px; border: 0;
+    background: #111827; color: #fff; font: 600 13.5px/1 Inter, system-ui, sans-serif;
+    box-shadow: 0 10px 28px rgba(0,0,0,.28); cursor: pointer;
+  }
+  .mobile-preview-fab i { font-size: 17px; }
+  body.employee-mode .mobile-preview-fab, body.manager-open .mobile-preview-fab { display: none; }
+}
+
+/* ── Accessibility ──────────────────────────────────────────────────── */
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.btn:focus-visible, .btn-icon:focus-visible, .manager-tab:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+}
+
+/* ── Printing ───────────────────────────────────────────────────────────
+   Default (Print button / Ctrl+P): the quotation/invoice, one sheet per page.
+   body.print-receipt is handled in style.css; body.print-section prints one
+   element (e.g. a client statement).                                       */
+@media print {
+  @page { size: A4; margin: 10mm; }
+  html, body { background: #fff !important; }
+  body:not(.print-receipt):not(.print-section) > *:not(.main) { display: none !important; }
+  body:not(.print-receipt):not(.print-section) .main { display: block !important; min-height: 0 !important; }
+  body:not(.print-receipt):not(.print-section) .main > *:not(.preview-pane) { display: none !important; }
+  body:not(.print-receipt):not(.print-section) .preview-pane {
+    display: block !important; position: static !important; visibility: visible !important;
+    width: auto !important; padding: 0 !important; overflow: visible !important; background: none !important;
+  }
+  body:not(.print-receipt):not(.print-section) .preview-doc { max-width: none !important; width: var(--print-doc-width, 740px) !important; gap: 0 !important; display: block !important; margin: 0 !important; }
+  body:not(.print-receipt):not(.print-section) .doc-page {
+    zoom: var(--print-zoom, 0.955);
+    box-shadow: none !important; border-radius: 0 !important; min-height: 0 !important;
+    break-after: page; page-break-after: always; break-inside: avoid;
+  }
+  body:not(.print-receipt):not(.print-section) .doc-page:last-child { break-after: auto; page-break-after: auto; }
+  body * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+  body.print-section * { visibility: hidden; }
+  body.print-section .print-target, body.print-section .print-target * { visibility: visible; }
+  body.print-section .print-target { position: absolute; left: 0; top: 0; width: 100%; }
+  body.print-section .print-target button { display: none !important; }
+
+  .toast-host, .mobile-preview-fab, .draft-banner { display: none !important; }
+}
+
+/* ── Business Manager header ────────────────────────────────────────────
+   style.css makes the header full-bleed (margin 0 -30px) but v4 reset its
+   horizontal padding to 0, so the title was clipped at the left edge. It was
+   also sticky at top:0 and slid underneath the sticky top bar.            */
+@media (min-width: 969px) {
+  .manager-head { padding-left: 30px !important; padding-right: 30px !important; top: 64px !important; }
+}
+@media (min-width: 969px) and (max-width: 1050px) {
+  .manager-head { margin-left: -18px !important; margin-right: -18px !important; padding-left: 18px !important; padding-right: 18px !important; }
+}

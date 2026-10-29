@@ -63,7 +63,7 @@ window.fxClientStatement=function(id){
   var inv=managerState.invoices.filter(function(x){return String(x.client_name||'').toLowerCase().indexOf(nm)>=0;});
   var rows=inv.map(function(x){var t=Number(x.grand_total||0),p=Math.min(invoicePaidAmount(x),t);return '<tr><td>'+esc(x.doc_number)+'</td><td>'+managerDate(x.issue_date)+'</td><td>'+managerDate(x.due_date)+'</td><td>'+managerMoney(t)+'</td><td>'+managerMoney(p)+'</td><td>'+managerMoney(t-p)+'</td><td>'+statusBadge(invoiceStatus(x))+'</td></tr>';}).join('');
   var bal=inv.reduce(function(a,x){var t=Number(x.grand_total||0);return a+t-Math.min(invoicePaidAmount(x),t);},0);
-  $('clStatement').innerHTML='<h3 style="margin:1rem 0 .4rem">Statement of account — '+esc(c.name)+'</h3>'+(rows?'<div class="manager-table-wrap"><table class="manager-table"><thead><tr><th>Invoice</th><th>Issued</th><th>Due</th><th>Total</th><th>Paid</th><th>Balance</th><th>Status</th></tr></thead><tbody>'+rows+'</tbody></table></div><p><strong>Outstanding: '+managerMoney(bal)+'</strong></p><button class="btn btn-sm" onclick="window.print()"><i class="ti ti-printer"></i> Print</button>':'<div class="manager-empty">No invoices matched this client name. Matching uses the saved client name.</div>');
+  $('clStatement').innerHTML='<h3 style="margin:1rem 0 .4rem">Statement of account — '+esc(c.name)+'</h3>'+(rows?'<div class="manager-table-wrap"><table class="manager-table"><thead><tr><th>Invoice</th><th>Issued</th><th>Due</th><th>Total</th><th>Paid</th><th>Balance</th><th>Status</th></tr></thead><tbody>'+rows+'</tbody></table></div><p><strong>Outstanding: '+managerMoney(bal)+'</strong></p><button class="btn btn-sm" onclick="printSection(\'clStatement\')"><i class="ti ti-printer"></i> Print</button>':'<div class="manager-empty">No invoices matched this client name. Matching uses the saved client name.</div>');
 };
 
 // ---------- Quotes ----------
@@ -138,7 +138,7 @@ async function addPicker(){
   var f=$('clientName');if(!f||$('fxClientPick'))return;var wrap=f.closest('.field');if(!wrap)return;
   var s=document.createElement('select');s.id='fxClientPick';s.innerHTML='<option value="">Pick saved client…</option>';s.style.marginBottom='6px';
   s.onchange=function(){var c=FX.clients.find(function(x){return x.id===s.value;});if(!c)return;$('clientName').value=c.name;$('clientContact').value=c.contact_person||'';$('clientEmail').value=c.email||'';$('clientAddr').value=c.address||'';render();
-    if(c.payment_terms_days&&$('issueDate').value){var d=new Date($('issueDate').value);d.setDate(d.getDate()+c.payment_terms_days);$('dueDate').value=d.toISOString().slice(0,10);render();}};
+    if(c.payment_terms_days&&$('issueDate').value){$('dueDate').value=addDaysISO($('issueDate').value,c.payment_terms_days);render();}};
   wrap.parentNode.insertBefore(s,wrap);
   window.fxRefreshPicker=async function(){try{FX.clients=await fetchAll('clients','*','name.asc');s.innerHTML='<option value="">Pick saved client…</option>'+FX.clients.map(function(c){return '<option value="'+c.id+'">'+esc(c.name)+'</option>';}).join('');}catch(e){}};
   window.fxRefreshPicker();

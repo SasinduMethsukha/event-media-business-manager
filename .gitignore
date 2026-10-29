@@ -1,0 +1,16 @@
+# Dependencies & build output
+node_modules/
+dist/
+coverage/
+
+# Secrets - never commit real keys (see docs/SECURITY-CHECKLIST.md)
+.env
+.env.*
+!.env.example
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+*.log
+.vscode/
+.idea/

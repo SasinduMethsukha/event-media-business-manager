@@ -1,0 +1,278 @@
+/* Event Media OS v7 — "Stage & Tally" theme.
+   The workspace borrows from a lighting desk: cool grey-blue surfaces, stage
+   navy ink and a single tally-light red (the logo red). Headings use Archivo
+   at an expanded width, like the stencilled labels on flight cases.
+   The quotation / invoice / receipt documents keep their own typography. */
+
+:root {
+  --bg: #eef1f5;
+  --surface: #ffffff;
+  --surface2: #f5f7fa;
+  --border: #dde2ea;
+  --border2: #c9d0db;
+  --text: #1c2333;
+  --text2: #5b6578;
+  --text3: #8a93a3;
+  --accent: #d6293e;
+  --accent2: #b51f32;
+  --accent-light: #fde8eb;
+  --amber: #e8962e;
+  --ink: #1c2333;
+  --success: #17804a;
+  --warning: #b8650f;
+  --danger: #c2233a;
+  --font-body: 'Archivo', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-display: 'Archivo', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --radius: 8px;
+  --radius-lg: 12px;
+  --shadow: 0 1px 0 rgba(28, 35, 51, .04);
+  --shadow-md: 0 6px 18px rgba(28, 35, 51, .07);
+  --shadow-lg: 0 18px 44px rgba(28, 35, 51, .12);
+}
+[data-theme=dark] {
+  --bg: #12161f;
+  --surface: #1a202b;
+  --surface2: #202734;
+  --border: #2a3242;
+  --border2: #39435a;
+  --text: #e6eaf2;
+  --text2: #a2abbd;
+  --text3: #6f7a8f;
+  --accent: #ff5a6e;
+  --accent2: #ff7787;
+  --accent-light: #3a1d25;
+  --ink: #e6eaf2;
+  --amber: #f2ab4c;
+}
+
+body { font-family: var(--font-body); font-feature-settings: 'tnum' 1; letter-spacing: 0; background: var(--bg); }
+/* Keep the documents exactly as designed */
+.preview-doc, .receipt-doc-paper, #receiptPrintableDoc { font-family: Inter, -apple-system, 'Segoe UI', sans-serif; font-feature-settings: normal; }
+
+/* Expanded headings */
+.brand-text, .manager-title, .auth-title, .v4-title, .manager-card-title, .v4-chart-title,
+.v7-dialog h2, .v7-att-title, .manager-modal-title, .metric-value {
+  font-family: var(--font-display); font-stretch: 118%; letter-spacing: -.01em;
+}
+.manager-title { font-size: 26px; font-weight: 700; }
+.v4-title { font-weight: 700; }
+.metric-value { font-weight: 650; }
+
+/* Sidebar section headings: sentence case, quiet, no tracking */
+.section-label {
+  text-transform: none; letter-spacing: 0; font-size: 13px; font-weight: 650; color: var(--text);
+  border-bottom: 1px solid var(--border); font-stretch: 110%;
+}
+
+/* ── Top bar: a calm control strip ─────────────────────────────────── */
+.topbar { background: var(--surface); border-bottom: 1px solid var(--border); box-shadow: none; backdrop-filter: none; }
+.brand i { background: var(--ink) !important; color: var(--surface) !important; border-radius: 7px; }
+.brand-text { font-weight: 750; font-size: 15px; }
+.topbar-right { gap: 6px; }
+.topbar-right .btn {
+  background: transparent !important; border: 1px solid transparent !important; color: var(--text) !important;
+  box-shadow: none !important; font-weight: 550; padding: 7px 10px; border-radius: 7px;
+}
+.topbar-right .btn i { color: var(--text2) !important; }
+.topbar-right .btn:hover { background: var(--surface2) !important; border-color: var(--border) !important; }
+.topbar-right .btn:hover i { color: var(--text) !important; }
+.topbar-right .btn-ai-quote-top i { color: #7c4dff !important; }
+.v7-tool-sep { width: 1px; height: 22px; background: var(--border); margin: 0 4px; flex: none; }
+
+.v7-search-btn { border: 1px solid var(--border) !important; background: var(--surface2) !important; color: var(--text2) !important; min-width: 190px; justify-content: flex-start; }
+.v7-search-btn span { flex: 1; text-align: left; }
+.v7-search-btn kbd, .v7-pal-item kbd, .v7-pal-foot kbd, .v7-keys kbd {
+  font: 600 10.5px/1 var(--font-body); padding: 3px 5px; border-radius: 4px;
+  border: 1px solid var(--border2); background: var(--surface); color: var(--text2);
+}
+
+/* The tally light: Save is the primary action and glows like a camera's REC
+   light while there are unsaved changes. */
+.topbar-right .v7-save {
+  background: var(--ink) !important; color: var(--surface) !important; border-color: var(--ink) !important;
+  padding-left: 12px; gap: 7px;
+}
+.topbar-right .v7-save i { color: var(--surface) !important; }
+.topbar-right .v7-save:hover { background: #2b3550 !important; }
+[data-theme=dark] .topbar-right .v7-save:hover { background: #fff !important; }
+.v7-tally { width: 8px; height: 8px; border-radius: 50%; background: #5f6b80; flex: none; transition: background .2s, box-shadow .2s; }
+#saveDocBtn.has-unsaved::after { display: none; }
+#saveDocBtn.has-unsaved .v7-tally { background: #ff3b52; box-shadow: 0 0 0 3px rgba(255, 59, 82, .25), 0 0 10px rgba(255, 59, 82, .8); animation: v7-tally 1.8s ease-in-out infinite; }
+@keyframes v7-tally { 50% { box-shadow: 0 0 0 2px rgba(255, 59, 82, .15), 0 0 4px rgba(255, 59, 82, .5); } }
+
+/* Employees only use the Business Manager: hide document tools */
+.employee-mode .topbar-right > .btn:not(#logoutBtn):not(#themeBtn):not(#paletteBtn),
+.employee-mode .v7-tool-sep { display: none !important; }
+
+@media (max-width: 1280px) { .v7-search-btn { min-width: 0; } .v7-search-btn span, .v7-search-btn kbd { display: none; } }
+@media (max-width: 1180px) { .topbar-right .btn { padding: 7px 8px; } }
+
+/* ── Buttons & controls ───────────────────────────────────────────── */
+.btn { border-radius: 7px; font-weight: 550; }
+.btn-primary { background: var(--ink); border-color: var(--ink); color: var(--surface); }
+.btn-primary:hover { background: #2b3550; border-color: #2b3550; }
+[data-theme=dark] .btn-primary:hover { background: #fff; border-color: #fff; }
+.btn-primary i { color: inherit; }
+.switch input:checked + .slider { background: var(--accent) !important; }
+.field input:focus, .field select:focus, .field textarea:focus,
+input:focus, select:focus, textarea:focus { border-color: var(--accent) !important; box-shadow: 0 0 0 3px var(--accent-light) !important; outline: none; }
+
+/* Editor tabs as a segmented control */
+.tabs, .sidebar-tabs { background: var(--surface); }
+.tab { font-weight: 600; border-radius: 7px; }
+.tab.active { background: var(--ink) !important; color: var(--surface) !important; box-shadow: none !important; }
+.tab.active i { color: inherit !important; }
+
+/* Line items: quieter cards, tally red only where it means something */
+.cat-block { border-radius: 10px; box-shadow: none; border-color: var(--border); }
+.cat-header { background: var(--surface); }
+.cat-name-input { font-stretch: 110%; font-size: 14px !important; }
+tr.item-row:hover { background: var(--surface2); }
+.pricing-block { border-radius: 10px; box-shadow: none; }
+
+/* ── Business Manager ─────────────────────────────────────────────── */
+.manager-head { background: color-mix(in srgb, var(--bg) 92%, transparent) !important; }
+.manager-tab { font-weight: 560; border-radius: 7px; }
+.manager-tab.active { background: var(--ink) !important; color: var(--surface) !important; border-color: var(--ink) !important; }
+.manager-tab.active i { color: inherit !important; }
+.metric-card, .manager-card, .v4-chart-card { border-radius: 12px; box-shadow: none; border-color: var(--border); }
+.v4-progress-card { background: var(--ink); }
+[data-theme=dark] .v4-progress-card { background: #232b3a; color: var(--text); }
+.v4-progress-fill, .v4-row-fill { background: var(--accent) !important; }
+.v4-line-revenue { stroke: var(--accent) !important; }
+.v4-dot { fill: var(--accent) !important; }
+.v4-bar { fill: var(--ink) !important; }
+[data-theme=dark] .v4-bar { fill: #8a97b3 !important; }
+
+/* Login */
+.auth-gate { background: radial-gradient(1200px 500px at 50% -10%, rgba(214, 41, 62, .10), transparent 60%), var(--bg) !important; }
+.auth-card { border-radius: 14px; box-shadow: var(--shadow-lg); border: 1px solid var(--border); }
+.auth-logo { background: var(--ink) !important; color: var(--surface) !important; }
+
+/* Document options added in v7 */
+.v7-check { display: flex; align-items: center; gap: 8px; margin-top: 8px; font-size: 12.5px; color: var(--text2); cursor: pointer; }
+.v7-check input { width: auto !important; accent-color: var(--accent); }
+.v7-words { margin-top: 8px; padding-top: 7px; border-top: 1px dashed #e5e5e5; font-size: 11px; line-height: 1.45; color: #555; font-style: italic; text-align: right; }
+.v7-adv-line { font-weight: 600; margin-top: 6px; }
+.v7-adv-balance { color: #666; }
+
+/* ── Overlays: library, palette, share, shortcuts ─────────────────── */
+.v7-overlay {
+  position: fixed; inset: 0; z-index: 15000; background: rgba(18, 22, 31, .45);
+  display: flex; align-items: flex-start; justify-content: center; padding: 9vh 16px 16px;
+  animation: v7-fade .14s ease-out;
+}
+@keyframes v7-fade { from { opacity: 0; } }
+.v7-dialog {
+  width: min(620px, 100%); max-height: 82vh; display: flex; flex-direction: column;
+  background: var(--surface); color: var(--text); border: 1px solid var(--border);
+  border-radius: 14px; box-shadow: 0 30px 80px rgba(10, 14, 22, .35); overflow: hidden;
+  animation: v7-rise .16s ease-out;
+}
+@keyframes v7-rise { from { transform: translateY(8px); opacity: .6; } }
+.v7-dialog-head { display: flex; align-items: center; justify-content: space-between; padding: 16px 18px 4px; }
+.v7-dialog h2 { font-size: 18px; font-weight: 700; }
+.v7-dialog-sub { padding: 0 18px 12px; color: var(--text2); font-size: 13px; line-height: 1.5; }
+.v7-x { border: 0; background: none; color: var(--text2); font-size: 22px; line-height: 1; cursor: pointer; padding: 2px 6px; border-radius: 6px; }
+.v7-x:hover { background: var(--surface2); color: var(--text); }
+.v7-dialog-foot { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; padding: 12px 18px 16px; border-top: 1px solid var(--border); }
+.v7-primary { background: #1fa855 !important; border-color: #1fa855 !important; color: #fff !important; }
+.v7-primary i { color: #fff !important; }
+.v7-empty { padding: 26px 18px; color: var(--text2); font-size: 13px; text-align: center; line-height: 1.5; }
+.v7-field { display: block; padding: 0 18px 12px; font-size: 12.5px; font-weight: 600; color: var(--text); }
+.v7-field span { font-weight: 400; color: var(--text3); }
+.v7-field input, .v7-field textarea { display: block; width: 100%; margin-top: 6px; padding: 9px 11px; border: 1px solid var(--border2); border-radius: 8px; background: var(--surface); color: var(--text); font: 400 13.5px/1.5 var(--font-body); }
+
+/* Item library */
+.v7-lib-controls { display: flex; gap: 10px; padding: 0 18px 10px; flex-wrap: wrap; align-items: center; }
+.v7-lib-controls input { flex: 1 1 220px; padding: 9px 11px; border: 1px solid var(--border2); border-radius: 8px; background: var(--surface); color: var(--text); }
+.v7-lib-controls label { font-size: 12.5px; color: var(--text2); display: flex; align-items: center; gap: 6px; }
+.v7-lib-controls select { padding: 7px 9px; border: 1px solid var(--border2); border-radius: 7px; background: var(--surface); color: var(--text); max-width: 200px; }
+.v7-lib-list { overflow-y: auto; border-top: 1px solid var(--border); flex: 1; min-height: 120px; }
+.v7-lib-row { display: flex; align-items: stretch; border-bottom: 1px solid var(--border); }
+.v7-lib-pick {
+  flex: 1; display: grid; grid-template-columns: 1fr auto; grid-template-areas: "name price" "meta price";
+  gap: 1px 12px; text-align: left; padding: 10px 18px; border: 0; background: none; color: var(--text); cursor: pointer; font: inherit;
+}
+.v7-lib-pick:hover, .v7-lib-pick:focus-visible { background: var(--surface2); }
+.v7-lib-name { grid-area: name; font-weight: 600; font-size: 13.5px; }
+.v7-lib-meta { grid-area: meta; font-size: 11.5px; color: var(--text3); }
+.v7-lib-price { grid-area: price; align-self: center; font-weight: 650; font-size: 13px; }
+.v7-lib-del { border: 0; background: none; color: var(--text3); padding: 0 16px; cursor: pointer; }
+.v7-lib-del:hover { color: var(--danger); background: var(--accent-light); }
+.v7-lib-btn { color: var(--text) !important; }
+
+/* Command palette */
+.v7-overlay-top .v7-dialog { width: min(640px, 100%); }
+.v7-pal-input { display: flex; align-items: center; gap: 10px; padding: 14px 18px; border-bottom: 1px solid var(--border); }
+.v7-pal-input i { font-size: 18px; color: var(--text3); }
+.v7-pal-input input { flex: 1; border: 0 !important; outline: none; background: none; color: var(--text); font: 500 16px/1.3 var(--font-body); box-shadow: none !important; }
+.v7-pal-list { overflow-y: auto; padding: 6px; max-height: 56vh; }
+.v7-pal-group { padding: 10px 12px 4px; font-size: 11.5px; font-weight: 650; color: var(--text3); }
+.v7-pal-item { display: flex; align-items: center; gap: 12px; padding: 9px 12px; border-radius: 8px; cursor: pointer; }
+.v7-pal-item i { font-size: 17px; color: var(--text2); width: 18px; text-align: center; }
+.v7-pal-item.is-sel { background: var(--ink); color: var(--surface); }
+.v7-pal-item.is-sel i, .v7-pal-item.is-sel small { color: inherit; opacity: .85; }
+.v7-pal-item.is-sel kbd { background: transparent; color: inherit; border-color: rgba(255, 255, 255, .35); }
+.v7-pal-text { flex: 1; display: flex; flex-direction: column; min-width: 0; font-size: 13.5px; }
+.v7-pal-text span, .v7-pal-text small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.v7-pal-text small { color: var(--text3); font-size: 11.5px; }
+.v7-pal-foot { display: flex; gap: 16px; padding: 9px 18px; border-top: 1px solid var(--border); font-size: 11.5px; color: var(--text3); }
+.v7-pal-foot kbd { margin-right: 3px; }
+
+/* Shortcuts */
+.v7-keys { display: grid; grid-template-columns: max-content 1fr; gap: 10px 18px; padding: 8px 18px 14px; font-size: 13.5px; }
+.v7-keys dt { text-align: right; }
+
+/* ── Needs attention strip ────────────────────────────────────────── */
+.v7-attention { margin-bottom: 16px; }
+.v7-att-title { font-size: 15px; font-weight: 700; margin-bottom: 8px; }
+.v7-att-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
+.v7-att {
+  display: flex; align-items: center; gap: 12px; text-align: left; padding: 12px 14px; border-radius: 10px;
+  border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; font: inherit;
+  border-left-width: 4px;
+}
+.v7-att b { font: 700 24px/1 var(--font-display); font-stretch: 118%; }
+.v7-att span { flex: 1; font-size: 13px; line-height: 1.35; }
+.v7-att small { display: block; color: var(--text2); font-size: 12px; margin-top: 2px; }
+.v7-att i { color: var(--text3); }
+.v7-att:hover { border-color: var(--border2); background: var(--surface2); }
+.v7-att-bad { border-left-color: var(--accent); }
+.v7-att-bad b { color: var(--accent); }
+.v7-att-warn { border-left-color: var(--amber); }
+.v7-att-warn b { color: var(--warning); }
+[data-theme=dark] .v7-att-warn b { color: var(--amber); }
+.v7-att-ok { display: flex; align-items: center; gap: 8px; padding: 11px 14px; border-radius: 10px; background: var(--surface); border: 1px solid var(--border); color: var(--text2); font-size: 13px; }
+.v7-att-ok i { color: var(--success); font-size: 18px; }
+
+/* Toasts follow the theme ink */
+.toast { background: #1c2333; }
+
+@media (max-width: 640px) {
+  .v7-overlay { padding: 12px; align-items: stretch; }
+  .v7-dialog { max-height: none; }
+}
+@media print { .v7-overlay { display: none !important; } }
+
+/* ── Polish ───────────────────────────────────────────────────────── */
+.topbar-right .v7-search-btn { border: 1px solid var(--border) !important; background: var(--surface2) !important; color: var(--text2) !important; }
+.topbar-right .v7-search-btn:hover { border-color: var(--border2) !important; }
+/* Show/hide toggles and pricing icons in the item editor use ink, not the
+   tally red, so red keeps meaning "removed / needs attention". */
+tr.item-row .btn-icon, tr.item-row .multi-day-toggle, .cat-block .btn-icon { --accent: var(--ink); }
+.v7-adv-line span:last-child, .v7-adv-balance span:last-child { white-space: nowrap; }
+.v7-adv-line span:first-child { padding-right: 10px; }
+.v4-dotkey:not(.muted) { background: var(--accent) !important; }
+.v4-kicker { text-transform: none !important; letter-spacing: 0 !important; font-size: 12px !important; font-weight: 600 !important; }
+.role-chip { background: var(--surface2) !important; color: var(--text2) !important; border: 1px solid var(--border) !important; text-transform: none !important; letter-spacing: 0 !important; font-weight: 600 !important; }
+.user-chip { border-color: var(--border) !important; background: var(--surface) !important; }
+
+/* Phone toolbar: icons only, Save always first and visible */
+@media (max-width: 780px) {
+  .topbar-right .btn { font-size: 0 !important; padding: 8px !important; gap: 0 !important; }
+  .topbar-right .btn i { font-size: 18px !important; }
+  .topbar-right .v7-save { order: -2; font-size: 13px !important; padding: 8px 12px !important; gap: 6px !important; }
+  .topbar-right #logoutBtn { order: 10; }
+  .v7-tool-sep { display: none; }
+}

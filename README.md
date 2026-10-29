@@ -1,12 +1,51 @@
 # Event Media Production Business Management System
 
-Files are separated for easier editing and deployment:
+Quotations, invoices, payment receipts, supplier rentals, equipment hire,
+expenses, events, crew and reports for Event Media Production — a static web
+app backed by Supabase.
 
-- `index.html` — page structure and external library links
-- `style.css` — all UI styling and responsive rules
-- `script.js` — all application logic
+## Quick start
 
-Keep all three files in the same folder when hosting the site.
+- **Run locally:** `npm run serve` then open http://localhost:8080 (or open
+  `index.html` from any static web server).
+- **Build for hosting:** `npm run build` → upload the `dist/` folder.
+- **Check before deploying:** `npm run check` (lint + unit tests).
+
+Keep the folder structure intact when hosting — `index.html` loads the files
+below in this order:
+
+| File | Purpose |
+|---|---|
+| `legacy/brand-assets.js` | Embedded logo and signatures |
+| `legacy/script.js` | Editor, numbering, PDF/PNG export, cloud save, auth, Business Manager |
+| `legacy/features.js` / `features2.js` | Clients, quotes, inventory, receivables / events, crew, payables, files, P&L, audit |
+| `legacy/ai-quote.js` | AI quotation assistant (Gemini or offline parser) |
+| `v4-modern.js` / `.css` | Dashboard analytics and modern UI layer |
+| `v6-enhancements.js` / `.css` | Reliability & usability layer |
+| `v7-features.js` / `v7-theme.css` | Theme, advance payment, amount in words, item library, search, WhatsApp share, attention panel |
+| `style.css`, `features.css` | Base styling |
+
+## v7 highlights
+
+- New "Stage & Tally" theme with a calm toolbar; Save glows red when there are unsaved changes.
+- Advance payment and amount in words on documents.
+- Item library that learns your prices, `Ctrl/Cmd + K` search, Copy as new, Share on WhatsApp.
+- "Needs attention" panel on the dashboard.
+
+## v6 improvements
+
+See `CHANGELOG.md` for the full list. Highlights:
+
+- Document numbers are no longer skipped when the page is reloaded.
+- Dates follow Sri Lanka local time (no more "yesterday" before 5:30 am).
+- The Print button prints the quotation/invoice (it printed blank pages).
+- Logins stay valid: the session refreshes itself instead of failing after an hour.
+- Unsaved work is autosaved on the device and can be restored; you are
+  warned before losing changes. `Ctrl/Cmd + S` saves, `Esc` closes dialogs.
+- Roomier line-item editor, a Preview button on phones, correct PDF page
+  breaks on phones and at any text size.
+- AI assistant: fixed model name, multi-day items keep their price, safer
+  handling of AI output and of the API key.
 
 ## v2 add-ons
 - `features.js` / `features.css` — Clients, Quote pipeline (+convert to invoice), Inventory + availability/double-booking check, Receivables ageing + WhatsApp reminders.
