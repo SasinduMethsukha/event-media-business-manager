@@ -1,4 +1,4 @@
-# Event Media Production Business Management System
+# Event Media Production Business Management System.
 
 Quotations, invoices, payment receipts, supplier rentals, equipment hire,
 expenses, events, crew and reports for Event Media Production — a static web
