@@ -22,6 +22,7 @@
 <link rel="stylesheet" href="v7-theme.css">
 <link rel="stylesheet" href="v8-shell.css">
 <link rel="stylesheet" href="v9-team.css">
+<link rel="stylesheet" href="v10-pages.css">
 </head>
 <body>
 
@@ -204,6 +205,18 @@
       </div>
       <div class="field"><label>Issue date</label><input type="date" id="issueDate" oninput="render()"></div>
       <div class="field" id="dueDateFieldWrap"><label>Valid / Due date</label><input type="date" id="dueDate" oninput="render()"></div>
+    </div>
+    <div class="field">
+      <label for="rowsPerPage">Rows per page</label>
+      <select id="rowsPerPage" onchange="render()">
+        <option value="10">10 rows (roomier)</option>
+        <option value="12">12 rows</option>
+        <option value="15" selected>15 rows (recommended)</option>
+        <option value="20">20 rows (compact)</option>
+        <option value="25">25 rows (very compact)</option>
+        <option value="0">No limit (original spacing)</option>
+      </select>
+      <small class="v10-hint">Page 1 holds this many items together with the totals, terms, bank details and signature. Extra items continue on the next page.</small>
     </div>
     <div class="row2" style="margin-bottom:.65rem;align-items:center">
       <div style="display:flex;align-items:center;gap:8px">
@@ -1497,6 +1510,7 @@ grant all privileges on all sequences in schema public to anon, authenticated;
 <script src="v7-features.js"></script>
 <script src="v8-shell.js"></script>
 <script src="v9-team.js"></script>
+<script src="v10-pages.js"></script>
 <script id="v5-module-bootstrap" type="module" src="src/main.js"></script>
 </body>
 </html>

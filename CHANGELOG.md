@@ -1,5 +1,21 @@
 # Changelog
 
+## v10.0.0 — 15 rows per A4 page
+
+- **Rows per page** (Document section, default 15): page 1 holds up to 15
+  line items together with the totals, terms, bank details and signature.
+  Item 16 onwards continues on page 2 (and so on, 15 per page). Options: 10,
+  12, 15, 20, 25 or "No limit" (the previous spacing and behaviour).
+- Long categories now split across pages with the heading repeated as
+  "(continued)", instead of the whole category jumping to the next page.
+- Compact A4 layout in this mode: tighter spacing, empty Bill-to lines take
+  no space, bank details sit beside the totals, and with one signer the
+  signature sits beside Terms & Conditions. Same content and look.
+- **Fix:** page breaks depended on the screen width, so the same quotation
+  could export as 1 page on a laptop and 2 on a phone. The document is now
+  always laid out at one width and scaled to fit, so preview, PDF and print
+  match on every device.
+
 ## v9.0.0 — sign-in and team
 
 Needs `supabase/migrations/202610300001_v9_team_roles.sql` for the Manager role

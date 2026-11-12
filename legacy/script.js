@@ -1206,7 +1206,7 @@ function renderNow() {
       var totalPrefix = isRemoved ? '&minus; ' : (isAdditional ? '+ ' : '');
       var totalColor = isRemoved ? '#dc2626' : (isAdditional ? '#16a34a' : '#111');
       var unitSpan = showUnitCol ? ('<span>' + (unitOn ? (unitPrefix + fmt(it.unit) + (it.multiDay ? '<span style="display:block;font-size:9px;color:#aaa">/ day</span>' : '')) : '') + '</span>') : '';
-      itemRows += '<div class="doc-item' + (isRemoved ? ' doc-item-removed' : '') + '" style="grid-template-columns:' + gridCols + '">' +
+      itemRows += '<div class="doc-item doc-row' + (isRemoved ? ' doc-item-removed' : '') + '" style="grid-template-columns:' + gridCols + '">' +
         descSpan +
         '<span>' + (qtyOn ? it.qty : '') + '</span>' +
         unitSpan +
@@ -1247,7 +1247,7 @@ function renderNow() {
     }
 
     catSections +=
-      '<div class="cat-sec' + (isRemoved ? ' cat-sec-removed' : '') + '">' +
+      '<div class="cat-sec' + (isRemoved ? ' cat-sec-removed' : '') + '" data-sec="' + ci + '">' +
       '<div class="cat-heading" style="background:' + bg + ';color:' + headingColor + '">' +
         '<span>' + esc(c.name) + typeBadge + '</span>' + (showCatHeadingTotal ? '<span>' + headingAmtFormatted + '</span>' : '') +
       '</div>' +
@@ -1324,11 +1324,12 @@ function renderNow() {
     }
   }
 
+  var fitPay = !!(docRowsPerPage() && paymentHtml);
   var addrLine = (gv('clientAddr')||'').replace(/\n/g,' &middot; ');
   var coAddrLine = (gv('coAddr')||'').replace(/\n/g,' &middot; ');
 
   document.getElementById('preview').innerHTML =
-    '<div class="preview-doc' + (docType === 'Quotation' ? ' doc-minimal' : '') + '" id="invoiceDoc" style="zoom:' + docTextScale + '">' +
+    '<div class="preview-doc' + (docType === 'Quotation' ? ' doc-minimal' : '') + (docRowsPerPage() ? ' doc-fit' : '') + '" id="invoiceDoc" style="zoom:' + docTextScale + '">' +
     '<div class="doc-accent-bar" style="background:' + accent + '"></div>' +
     '<div class="doc-header-wrap">' +
       '<div style="display:flex;align-items:center">' +
@@ -1373,13 +1374,17 @@ function renderNow() {
       '</div>' +
     '</div>' +
     '<div class="doc-items-wrap">' + catSections + '</div>' +
-    '<div class="doc-summary-wrap"><div class="summary-inner">' +
+    // Page-fit mode: bank details use the empty space left of the totals.
+    (fitPay ? '<div class="doc-summary-wrap doc-summary-split"><div class="doc-pay-side">' + paymentHtml + '</div><div class="summary-inner">' : '<div class="doc-summary-wrap"><div class="summary-inner">') +
       sumLines +
       '<div class="sum-total" style="background:' + accent + '"><span>Grand Total</span><span>' + fmt(t.grand) + '</span></div>' +
       // Extension point for v7 document options (advance payment, amount in words).
       (typeof window.docSummaryExtras === 'function' ? window.docSummaryExtras(t, docType) : '') +
     '</div></div>' +
-    notes + paymentHtml + sigHtml +
+    // Page-fit mode with one signer: terms on the left, signature on the right.
+    ((fitPay || !paymentHtml) && docRowsPerPage() && notes && signers.length === 1
+      ? '<div class="doc-terms-sign">' + notes + sigHtml + '</div>'
+      : notes + (fitPay ? '' : paymentHtml) + sigHtml) +
     '</div>';
   paginateDoc();
   applyPageGap();
@@ -1394,6 +1399,14 @@ function applyPageGap() {
   if (!doc) return;
   var gap = parseFloat(gv('pageGap'));
   doc.style.gap = (isNaN(gap) ? 32 : gap) + 'px';
+}
+
+// Maximum line items per page (0 = no limit, original spacing). Set from the
+// "Rows per page" control in the Document section; default 15.
+function docRowsPerPage() {
+  var el = document.getElementById('rowsPerPage');
+  var n = el ? parseInt(el.value, 10) : 15;
+  return isFinite(n) && n > 0 ? n : 0;
 }
 
 // ── PAGINATION (Word-style page breaks) ──
@@ -1438,9 +1451,13 @@ function paginateDoc() {
   var cssScale = (doc.offsetWidth && pageW) ? (pageW / doc.offsetWidth) : 1;
 
   // Greedy-pack blocks into pages; never split a block across pages.
+  // In rows-per-page mode everything starts on page 1 and
+  // rebalanceDocPages() flows rows forward (splitting long categories).
+  var rowCap = docRowsPerPage();
   var pages = [[]];
   var used = 0;
   for (var i = 0; i < blocks.length; i++) {
+    if (rowCap) { pages[0].push(blocks[i]); continue; }
     var h = heights[i];
     var cur = pages[pages.length - 1];
     if (cur.length > 0 && used + h > pageH) {
@@ -1486,19 +1503,20 @@ function paginateDoc() {
   });
   doc.innerHTML = '';
   doc.appendChild(frag);
-  rebalanceDocPages(doc);
+  rebalanceDocPages(doc, rowCap);
 }
 
 // The greedy pass above measures blocks on their own, so it cannot see the
-// padding each page's .doc-items-wrap adds or the page-number footer. Pages
-// came out taller than A4 (and were squashed when exported to PDF). This pass
-// measures the real pages and pushes the last block forward until each fits.
-function rebalanceDocPages(doc) {
+// padding each page's .doc-items-wrap adds or the page-number footer. This
+// pass measures the real pages and pushes content forward until each page
+// fits on A4. With a row limit (rowCap) it also starts a new page after that
+// many line items, and splits a category between pages, repeating its
+// heading as "(continued)", instead of moving the whole category.
+function rebalanceDocPages(doc, rowCap) {
   var pageSel = ':scope > .doc-page';
   function pageList() { return Array.prototype.slice.call(doc.querySelectorAll(pageSel)); }
   function maxH(pg) { var r = pg.getBoundingClientRect(); return r.width * PAGE_CONTENT_ASPECT; }
   function contentH(pg) {
-    // Rendered height of the content, ignoring min-height.
     var mh = pg.style.minHeight; pg.style.minHeight = '0px';
     var h = pg.getBoundingClientRect().height;
     pg.style.minHeight = mh;
@@ -1519,18 +1537,91 @@ function rebalanceDocPages(doc) {
     pg.style.minHeight = likePage.style.minHeight;
     return pg;
   }
+  function frontWrap(to) {
+    var first = to.firstElementChild;
+    if (first && first.classList.contains('doc-items-wrap')) return first;
+    var wrap = document.createElement('div'); wrap.className = 'doc-items-wrap';
+    to.insertBefore(wrap, to.firstChild);
+    return wrap;
+  }
+  function dropEmptyWrap(parent, from) {
+    if (parent && parent !== from && parent.classList && parent.classList.contains('doc-items-wrap') && !parent.children.length) parent.parentNode.removeChild(parent);
+  }
   function moveToNext(block, from, to) {
     var parent = block.parentNode;
-    var num = to.querySelector(':scope > .doc-page-number');
     if (block.classList.contains('cat-sec')) {
-      var first = to.firstElementChild;
-      var wrap = (first && first.classList.contains('doc-items-wrap')) ? first : null;
-      if (!wrap) { wrap = document.createElement('div'); wrap.className = 'doc-items-wrap'; to.insertBefore(wrap, to.firstChild); }
-      wrap.insertBefore(block, wrap.firstChild);
-      if (parent && parent !== from && !parent.children.length) parent.parentNode.removeChild(parent);
+      var wrap = frontWrap(to);
+      // Joining the continuation of the same category: merge instead.
+      var cont = wrap.firstElementChild;
+      if (cont && cont.classList.contains('cat-sec-cont') && cont.dataset.sec === block.dataset.sec) {
+        var anchor = cont.querySelector(':scope > .items-head');
+        rowsAndTail(block).reverse().forEach(function(el) { cont.insertBefore(el, anchor ? anchor.nextSibling : cont.firstChild); });
+        block.parentNode.removeChild(block);
+      } else {
+        wrap.insertBefore(block, wrap.firstChild);
+      }
+      dropEmptyWrap(parent, from);
     } else {
+      var num = to.querySelector(':scope > .doc-page-number');
       to.insertBefore(block, to.firstChild === num ? num : to.firstChild);
     }
+  }
+  function rowsAndTail(sec) {
+    return Array.prototype.slice.call(sec.children).filter(function(c) {
+      return !c.classList.contains('cat-heading') && !c.classList.contains('items-head');
+    });
+  }
+  function rowCount(el) { return el.querySelectorAll('.doc-row').length; }
+  // Continuation section of `sec` at the top of page `to` (created if needed).
+  function continuation(sec, to) {
+    var wrap = frontWrap(to), first = wrap.firstElementChild;
+    if (first && first.classList.contains('cat-sec-cont') && first.dataset.sec === sec.dataset.sec) return first;
+    var c = document.createElement('div');
+    c.className = sec.className + ' cat-sec-cont';
+    c.dataset.sec = sec.dataset.sec;
+    var head = sec.querySelector(':scope > .cat-heading'), cols = sec.querySelector(':scope > .items-head');
+    if (head) {
+      var h = head.cloneNode(true);
+      var label = h.firstElementChild || h;
+      if (!/\(continued\)/.test(label.textContent)) {
+        var tag = document.createElement('span'); tag.className = 'cat-cont-label'; tag.textContent = ' (continued)';
+        label.appendChild(tag);
+      }
+      c.appendChild(h);
+    }
+    if (cols) c.appendChild(cols.cloneNode(true));
+    wrap.insertBefore(c, wrap.firstChild);
+    return c;
+  }
+  function moveIntoCont(els, cont) {
+    var anchor = cont.querySelector(':scope > .items-head') || cont.querySelector(':scope > .cat-heading');
+    els.slice().reverse().forEach(function(el) { cont.insertBefore(el, anchor ? anchor.nextSibling : cont.firstChild); });
+  }
+  // Move one trailing element of a category (a row, or its subtotal/note) on.
+  function shedOne(sec, from, to) {
+    var parts = rowsAndTail(sec);
+    var rowsLeft = rowCount(sec);
+    var last = parts[parts.length - 1];
+    if (!last) return false;
+    if (rowsLeft <= 1) { moveToNext(sec, from, to); return true; }
+    // A subtotal / note never moves without at least the row before it.
+    var group = [];
+    for (var k = parts.length - 1; k >= 0; k--) { group.unshift(parts[k]); if (parts[k].classList.contains('doc-row')) break; }
+    moveIntoCont(group, continuation(sec, to));
+    return true;
+  }
+  // Everything after the rowCap-th row of this page goes to the next page.
+  function splitAtCap(pg, to) {
+    var rows = pg.querySelectorAll('.doc-row');
+    var keep = rows[rowCap - 1];
+    if (!keep) return false;
+    var sec = keep.closest('.cat-sec');
+    var blocks = blocksOf(pg), idx = blocks.indexOf(sec);
+    blocks.slice(idx + 1).reverse().forEach(function(b) { moveToNext(b, pg, to); });
+    var after = [], el = keep.nextElementSibling;
+    while (el) { after.push(el); el = el.nextElementSibling; }
+    if (after.some(function(x) { return x.classList.contains('doc-row'); })) moveIntoCont(after, continuation(sec, to));
+    return true;
   }
   function renumber() {
     var pages = pageList();
@@ -1547,15 +1638,28 @@ function rebalanceDocPages(doc) {
   var pages = pageList();
   if (!pages.length || !pages[0].getBoundingClientRect().width) return;
   renumber();
-  for (var i = 0, safety = 0; i < pages.length && safety < 200; i++) {
+  var safety = 0;
+  for (var i = 0; i < pages.length && safety < 2000; i++) {
     var pg = pages[i];
-    while (contentH(pg) > maxH(pg) + 0.5 && safety++ < 200) {
-      var bl = blocksOf(pg);
-      if (bl.length <= 1) break; // a single block taller than a page cannot be split
+    while (safety++ < 2000) {
+      var tooManyRows = rowCap && rowCount(pg) > rowCap;
+      var overflow = contentH(pg) > maxH(pg) + 0.5;
+      if (!tooManyRows && !overflow) break;
       if (!pages[i + 1]) { var np = newPage(pg); doc.appendChild(np); pages.push(np); renumber(); }
-      moveToNext(bl[bl.length - 1], pg, pages[i + 1]);
+      var next = pages[i + 1];
+      if (tooManyRows) { if (!splitAtCap(pg, next)) break; continue; }
+      var bl = blocksOf(pg);
+      var lastBlock = bl[bl.length - 1];
+      if (rowCap && lastBlock && lastBlock.classList.contains('cat-sec') && rowsAndTail(lastBlock).length && (bl.length > 1 || rowCount(lastBlock) > 1)) {
+        if (!shedOne(lastBlock, pg, next)) break;
+        continue;
+      }
+      if (bl.length <= 1) break; // a single block taller than a page cannot be split
+      moveToNext(lastBlock, pg, next);
     }
   }
+  // Drop pages left empty by merging.
+  pageList().forEach(function(pg) { if (!blocksOf(pg).length && pageList().length > 1) pg.parentNode.removeChild(pg); });
   renumber();
 }
 
