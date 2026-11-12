@@ -8,6 +8,9 @@ The quotation and invoice layouts are unchanged.
   above and below each line item.
 - **Section spacing** slider (0–200%, Reset button): the space between the
   header, Bill to, categories, totals, terms, bank details and signature.
+- **Spacing bar above the live preview**: Row gap and Section gap sliders
+  with the page count, so you can drag and watch the gaps and pages change.
+  It uses the same values as the editor sliders.
 - Both are saved with each document. Documents saved earlier open at 100%,
   so they look exactly as before.
 - Lower spacing fits more on a page: a typical one-category quotation with
