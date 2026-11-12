@@ -30,10 +30,37 @@
     var rn = window.renderNow;
     window.renderNow = function () { var r = rn.apply(this, arguments); fitPreview(); return r; };
   }
+  // ── Row / section spacing controls ──────────────────────────────
+  var GAPS = ['rowGap', 'sectionGap'];
+  function syncGapLabels() {
+    GAPS.forEach(function (id) {
+      var el = $(id), lab = $(id + 'Val');
+      if (el && lab) lab.textContent = el.value + '%';
+    });
+  }
+  window.resetDocGap = function (id) {
+    var el = $(id); if (!el) return;
+    el.value = 100; syncGapLabels();
+    if (typeof window.render === 'function') window.render();
+  };
+  // Older saved documents have no spacing values: open them at 100%.
+  if (typeof window.applyDocSnapshot === 'function') {
+    var ap = window.applyDocSnapshot;
+    window.applyDocSnapshot = function (state) {
+      var form = state && state.form;
+      GAPS.forEach(function (id) { if (!form || !Object.prototype.hasOwnProperty.call(form, id)) { var el = $(id); if (el) el.value = 100; } });
+      if (!form || !Object.prototype.hasOwnProperty.call(form, 'rowsPerPage')) { var rp = $('rowsPerPage'); if (rp) rp.value = '0'; }
+      var r = ap.apply(this, arguments);
+      syncGapLabels();
+      return r;
+    };
+  }
+
   var t = null;
   window.addEventListener('resize', function () { clearTimeout(t); t = setTimeout(fitPreview, 120); });
   document.addEventListener('DOMContentLoaded', function () {
     document.documentElement.style.setProperty('--doc-layout-width', DOC_LAYOUT_WIDTH + 'px');
+    syncGapLabels();
     fitPreview();
   });
   // Re-fit when the phone preview opens/closes or the menu changes width.

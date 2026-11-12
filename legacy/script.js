@@ -1324,12 +1324,11 @@ function renderNow() {
     }
   }
 
-  var fitPay = !!(docRowsPerPage() && paymentHtml);
   var addrLine = (gv('clientAddr')||'').replace(/\n/g,' &middot; ');
   var coAddrLine = (gv('coAddr')||'').replace(/\n/g,' &middot; ');
 
   document.getElementById('preview').innerHTML =
-    '<div class="preview-doc' + (docType === 'Quotation' ? ' doc-minimal' : '') + (docRowsPerPage() ? ' doc-fit' : '') + '" id="invoiceDoc" style="zoom:' + docTextScale + '">' +
+    '<div class="preview-doc' + (docType === 'Quotation' ? ' doc-minimal' : '') + '" id="invoiceDoc" style="zoom:' + docTextScale + ';--rg:' + docGapScale('rowGap') + ';--sg:' + docGapScale('sectionGap') + '">' +
     '<div class="doc-accent-bar" style="background:' + accent + '"></div>' +
     '<div class="doc-header-wrap">' +
       '<div style="display:flex;align-items:center">' +
@@ -1374,17 +1373,13 @@ function renderNow() {
       '</div>' +
     '</div>' +
     '<div class="doc-items-wrap">' + catSections + '</div>' +
-    // Page-fit mode: bank details use the empty space left of the totals.
-    (fitPay ? '<div class="doc-summary-wrap doc-summary-split"><div class="doc-pay-side">' + paymentHtml + '</div><div class="summary-inner">' : '<div class="doc-summary-wrap"><div class="summary-inner">') +
+    '<div class="doc-summary-wrap"><div class="summary-inner">' +
       sumLines +
       '<div class="sum-total" style="background:' + accent + '"><span>Grand Total</span><span>' + fmt(t.grand) + '</span></div>' +
       // Extension point for v7 document options (advance payment, amount in words).
       (typeof window.docSummaryExtras === 'function' ? window.docSummaryExtras(t, docType) : '') +
     '</div></div>' +
-    // Page-fit mode with one signer: terms on the left, signature on the right.
-    ((fitPay || !paymentHtml) && docRowsPerPage() && notes && signers.length === 1
-      ? '<div class="doc-terms-sign">' + notes + sigHtml + '</div>'
-      : notes + (fitPay ? '' : paymentHtml) + sigHtml) +
+    notes + paymentHtml + sigHtml +
     '</div>';
   paginateDoc();
   applyPageGap();
@@ -1405,8 +1400,14 @@ function applyPageGap() {
 // "Rows per page" control in the Document section; default 15.
 function docRowsPerPage() {
   var el = document.getElementById('rowsPerPage');
-  var n = el ? parseInt(el.value, 10) : 15;
+  var n = el ? parseInt(el.value, 10) : 0;
   return isFinite(n) && n > 0 ? n : 0;
+}
+
+// Row / section spacing sliders: percentage of the design's own spacing.
+function docGapScale(id) {
+  var v = parseFloat(gv(id));
+  return isFinite(v) && v >= 0 ? (v / 100) : 1;
 }
 
 // ── PAGINATION (Word-style page breaks) ──
