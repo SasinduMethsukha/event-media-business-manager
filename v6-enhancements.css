@@ -155,7 +155,7 @@ tr.multi-day-row td { display: block; }
    body.print-receipt is handled in style.css; body.print-section prints one
    element (e.g. a client statement).                                       */
 @media print {
-  @page { size: A4; margin: 10mm; }
+  @page { size: A4; margin: 0; }
   html, body { background: #fff !important; }
   body:not(.print-receipt):not(.print-section) > *:not(.main) { display: none !important; }
   body:not(.print-receipt):not(.print-section) .main { display: block !important; min-height: 0 !important; }

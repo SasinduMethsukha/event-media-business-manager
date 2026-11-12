@@ -1,5 +1,13 @@
 # Changelog
 
+## v10.2.0 — full-page PDF
+
+- **Fix:** exported PDFs had an extra white border: a 10 mm paper margin
+  was added around each page on top of the page's own padding. Each page
+  now fills the A4 sheet edge to edge, like the PNG export. Printing does
+  the same.
+- Pages are measured at the full A4 shape (297 × 210) to match.
+
 ## v10.1.0 — spacing bar
 
 - Row gap / Section gap sliders and the page count above the live preview.
