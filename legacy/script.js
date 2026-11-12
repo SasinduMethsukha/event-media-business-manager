@@ -1411,11 +1411,12 @@ function docGapScale(id) {
 }
 
 // ── PAGINATION (Word-style page breaks) ──
-// A4 content-area aspect ratio (height/width) after a 10mm margin on all
-// sides: (297-20) / (210-20) = 277/190. We derive the pixel page height
+// A4 aspect ratio (height/width): 297/210. Each page fills the whole sheet
+// in PDF and print (the page has its own padding, so no extra paper margin
+// is added - that used to leave a double white border). We derive the pixel page height
 // from the doc's actual rendered width so this works at any zoom level
 // or screen size.
-var PAGE_CONTENT_ASPECT = 277 / 190;
+var PAGE_CONTENT_ASPECT = 297 / 210;
 
 function paginateDoc() {
   var doc = document.getElementById('invoiceDoc');
@@ -1709,6 +1710,9 @@ function captureInvoiceCanvas(el, zoomFactor, lockWidth, ancestorClassName) {
     clone.removeAttribute('id');
     clone.style.zoom = zoomFactor;
     clone.style.margin = '0';
+    // Square, shadow-free edges so the page fills the PDF sheet cleanly.
+    clone.style.borderRadius = '0';
+    clone.style.boxShadow = 'none';
     // Force every captured page to the same pre-zoom width. Without this,
     // a page with little content (e.g. just terms & signatures) shrink-
     // wraps narrower than a full page once detached from its normal
@@ -1790,7 +1794,9 @@ function downloadPDF() {
   var pdf = new window.jspdf.jsPDF({orientation:'portrait', unit:'mm', format:'a4'});
   var pageW = pdf.internal.pageSize.getWidth();
   var pageH = pdf.internal.pageSize.getHeight();
-  var marginX = 10, marginY = 10;
+  // No paper margin: the page image fills the A4 sheet edge to edge, like
+  // the PNG export. The document's own padding provides the white margin.
+  var marginX = 0, marginY = 0;
   var imgW = pageW - marginX * 2;
   var maxImgH = pageH - marginY * 2;
 

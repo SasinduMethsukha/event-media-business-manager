@@ -270,7 +270,7 @@
     var w = doc.offsetWidth * innerZoom; // ignores the phone preview's fit-to-screen zoom
     if (!w) return;
     pane.style.setProperty('--print-doc-width', doc.offsetWidth + 'px');
-    pane.style.setProperty('--print-zoom', String(Math.min(1.5, (718 / w) * 0.985)));
+    pane.style.setProperty('--print-zoom', String(Math.min(1.5, (793 / w) * 0.985)));
   });
 
   // ─────────────────────────────────────────────────────────────
