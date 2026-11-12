@@ -39,3 +39,19 @@
    page breaks, PDF and print are the same on every device. */
 .preview-doc { width: var(--doc-layout-width, 680px) !important; max-width: none !important; margin-left: auto; margin-right: auto; }
 .preview-pane { overflow-x: hidden !important; }
+
+/* Spacing bar above the live preview */
+.v10-spacing-bar {
+  position: sticky; top: 0; z-index: 5;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px;
+  margin: 0 auto 14px; padding: 8px 12px; max-width: var(--doc-layout-width, 680px);
+  background: var(--surface, #fff); border: 1px solid var(--border, rgba(0,0,0,.12));
+  border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,.08); font-size: 12.5px;
+}
+.v10-sb-item { display: flex; align-items: center; gap: 8px; margin: 0; cursor: pointer; }
+.v10-sb-label { font-weight: 600; color: var(--text2, #444); white-space: nowrap; }
+.v10-sb-item input[type=range] { width: 120px; accent-color: var(--accent, #c0392b); }
+.v10-sb-val { min-width: 3.2em; font-variant-numeric: tabular-nums; color: var(--text3, #777); }
+.v10-sb-pages { margin-left: auto; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--text2, #444); white-space: nowrap; }
+@media (max-width: 600px) { .v10-sb-item input[type=range] { width: 90px; } }
+@media print { .v10-spacing-bar { display: none !important; } }
