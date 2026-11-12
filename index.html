@@ -211,12 +211,12 @@
       <select id="rowsPerPage" onchange="render()">
         <option value="10">10 rows (roomier)</option>
         <option value="12">12 rows</option>
-        <option value="15" selected>15 rows (recommended)</option>
+        <option value="15">15 rows</option>
         <option value="20">20 rows (compact)</option>
         <option value="25">25 rows (very compact)</option>
-        <option value="0">No limit (original spacing)</option>
+        <option value="0" selected>No limit (fill each page)</option>
       </select>
-      <small class="v10-hint">Page 1 holds this many items together with the totals, terms, bank details and signature. Extra items continue on the next page.</small>
+      <small class="v10-hint">With a limit, each page holds at most this many items; the rest continue on the next page.</small>
     </div>
     <div class="row2" style="margin-bottom:.65rem;align-items:center">
       <div style="display:flex;align-items:center;gap:8px">
@@ -231,6 +231,22 @@
     <div class="field" style="margin-bottom:.65rem">
       <label>Page gap <span id="pageGapVal" style="color:var(--text2);font-weight:400">32px</span></label>
       <input type="range" id="pageGap" min="0" max="80" value="32" step="2" oninput="document.getElementById('pageGapVal').textContent=this.value+'px';applyPageGap()" style="width:100%">
+    </div>
+    <div class="field v10-gap-field" style="margin-bottom:.65rem">
+      <label for="rowGap">Row spacing <span id="rowGapVal" style="color:var(--text2);font-weight:400">100%</span></label>
+      <div class="v10-gap-row">
+        <input type="range" id="rowGap" min="0" max="200" value="100" step="5" oninput="document.getElementById('rowGapVal').textContent=this.value+'%';render()" style="width:100%" aria-describedby="rowGapHint">
+        <button type="button" class="btn btn-sm" onclick="resetDocGap('rowGap')" title="Back to the normal spacing">Reset</button>
+      </div>
+      <small class="v10-hint" id="rowGapHint">Space above and below each line item. Lower it to fit more rows on a page.</small>
+    </div>
+    <div class="field v10-gap-field" style="margin-bottom:.65rem">
+      <label for="sectionGap">Section spacing <span id="sectionGapVal" style="color:var(--text2);font-weight:400">100%</span></label>
+      <div class="v10-gap-row">
+        <input type="range" id="sectionGap" min="0" max="200" value="100" step="5" oninput="document.getElementById('sectionGapVal').textContent=this.value+'%';render()" style="width:100%" aria-describedby="sectionGapHint">
+        <button type="button" class="btn btn-sm" onclick="resetDocGap('sectionGap')" title="Back to the normal spacing">Reset</button>
+      </div>
+      <small class="v10-hint" id="sectionGapHint">Space between the header, Bill to, categories, totals, terms, bank details and signature.</small>
     </div>
 
     <div class="section-label">

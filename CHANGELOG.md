@@ -1,16 +1,22 @@
 # Changelog
 
-## v10.0.0 — 15 rows per A4 page
+## v10.0.0 — page spacing controls
 
-- **Rows per page** (Document section, default 15): page 1 holds up to 15
-  line items together with the totals, terms, bank details and signature.
-  Item 16 onwards continues on page 2 (and so on, 15 per page). Options: 10,
-  12, 15, 20, 25 or "No limit" (the previous spacing and behaviour).
-- Long categories now split across pages with the heading repeated as
-  "(continued)", instead of the whole category jumping to the next page.
-- Compact A4 layout in this mode: tighter spacing, empty Bill-to lines take
-  no space, bank details sit beside the totals, and with one signer the
-  signature sits beside Terms & Conditions. Same content and look.
+The quotation and invoice layouts are unchanged.
+
+- **Row spacing** slider (Document section, 0–200%, Reset button): the space
+  above and below each line item.
+- **Section spacing** slider (0–200%, Reset button): the space between the
+  header, Bill to, categories, totals, terms, bank details and signature.
+- Both are saved with each document. Documents saved earlier open at 100%,
+  so they look exactly as before.
+- Lower spacing fits more on a page: a typical one-category quotation with
+  event details, terms, bank details and signature fits about 12 items on
+  one A4 page at 0% / 0% (8 items at Row 0% / Section 20%).
+- **Rows per page** (optional, default "No limit"): caps the items on each
+  page; the rest continue on the next page. Long categories split across
+  pages with the heading repeated as "(continued)" instead of the whole
+  category jumping to the next page.
 - **Fix:** page breaks depended on the screen width, so the same quotation
   could export as 1 page on a laptop and 2 on a phone. The document is now
   always laid out at one width and scaled to fit, so preview, PDF and print
