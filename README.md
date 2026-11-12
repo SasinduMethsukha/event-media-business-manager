@@ -22,6 +22,7 @@ below in this order:
 | `legacy/ai-quote.js` | AI quotation assistant (Gemini or offline parser) |
 | `v4-modern.js` / `.css` | Dashboard analytics and modern UI layer |
 | `v6-enhancements.js` / `.css` | Reliability & usability layer |
+| `v10-pages.js` / `v10-pages.css` | Rows-per-page A4 layout and device-independent page breaks |
 | `v9-team.js` / `v9-team.css` | Sign-in, password reset, account, Team page and roles |
 | `v8-shell.js` / `v8-shell.css` | App shell: side menu, contextual top bar, editor sections |
 | `v7-features.js` / `v7-theme.css` | Theme, advance payment, amount in words, item library, search, WhatsApp share, attention panel |
